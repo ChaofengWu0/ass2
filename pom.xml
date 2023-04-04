@@ -11,6 +11,7 @@
     <modules>
         <module>chatting-client</module>
         <module>chatting-server</module>
+
         <module>chatting-common</module>
     </modules>
 
