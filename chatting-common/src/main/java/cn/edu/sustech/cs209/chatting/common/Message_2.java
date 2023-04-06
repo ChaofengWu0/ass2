@@ -1,6 +1,6 @@
 package cn.edu.sustech.cs209.chatting.common;
 
-public class Message {
+public class Message_2 {
 
     private Long timestamp;
 
@@ -10,7 +10,7 @@ public class Message {
 
     private String data;
 
-    public Message(Long timestamp, String sentBy, String sendTo, String data) {
+    public Message_2(Long timestamp, String sentBy, String sendTo, String data) {
         this.timestamp = timestamp;
         this.sentBy = sentBy;
         this.sendTo = sendTo;

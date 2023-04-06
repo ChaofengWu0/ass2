@@ -13,6 +13,12 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.0.32</version>
+        </dependency>
+
+        <dependency>
             <groupId>cn.edu.sustech.cs209.chatting</groupId>
             <artifactId>chatting-common</artifactId>
         </dependency>

@@ -13,12 +13,10 @@ import javafx.stage.Stage;
 import javafx.util.Callback;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,56 +25,31 @@ public class Controller implements Initializable {
     @FXML
     ListView<Message> chatContentList;
 
-    String username;
+    final int serverPort = 9999;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+    private Socket socket;
+    private String username;
 
-    ArrayList<Socket> arrayList;
+    private ClientService clientService;
+    // ArrayList<Socket> arrayList;
 
-    public Connection getConnection() {
-        Properties pros = new Properties();
-        try {
-            pros.load(this.getClass().getResourceAsStream("jdbc.properties"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        try {
-            Class.forName(pros.getProperty("driverClass"));
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        Connection conn = null;
-        try {
-            String url = pros.getProperty("url");
-            String user = pros.getProperty("user");
-            String password = pros.getProperty("password");
-            conn = DriverManager.getConnection(url, user, password);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return conn;
-    }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        this.arrayList = new ArrayList<>();
-
-        Connection connection = getConnection();
-
-        String selectSQLExist = "select * from user where username = ?;";
-        String selectSQLStatus = "select status from user where username = ? ";
-
-        PreparedStatement selectWhetherExist;
-        PreparedStatement selectStatus;
-        try {
-            selectWhetherExist = connection.prepareStatement(selectSQLExist);
-            selectStatus = connection.prepareStatement(selectSQLStatus);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        // this.arrayList = new ArrayList<>();
 
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
+        try {
+            socket = new Socket("localhost", 9999);
+            out = new ObjectOutputStream(socket.getOutputStream());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
 
         Optional<String> input = dialog.showAndWait();
         if (input.isPresent() && !input.get().isEmpty()) {
@@ -85,28 +58,31 @@ public class Controller implements Initializable {
                      if so, ask the user to change the username
              */
             username = input.get();
-            try {
-                selectWhetherExist.setString(1, username);
-                if (selectWhetherExist.executeQuery().getFetchSize() != 0) {
-                    // 说明数据库里有这个用户，不能再创建
-                    // 那我查他的登陆状态 规定1为登录 0为下线
-                    int status = selectStatus.executeQuery().getInt("status");
-                    if (status == 0) {
-                        // 可以登录
 
-                    } else {
-                        System.out.println("您的帐号在其他地方已经登陆");
+            try {
+                // 发送给服务器，让服务器去查询当前username有没有在数据库中
+                Message handshaking1 = new Message(0, username);
+                out.writeObject(handshaking1);
+                out.flush();
+                while (true) {
+                    in = new ObjectInputStream(socket.getInputStream());
+                    Object obj = in.readObject();
+                    if (obj != null) {
+                        Message message = (Message) obj;
+                        if (message.getType() == 1 && message.getData().equals("success")) {
+                            clientService = new ClientService(socket);
+                            clientService.setActives(new ArrayList<>());
+                            Thread thread = new Thread(clientService);
+                            System.out.println("clientService runs...");
+                            thread.start();
+                        }
+                        break;
                     }
-                } else {
-                    // 可以创建并且可以登录
                 }
-            } catch (SQLException e) {
+            } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
-
             System.out.println(username);
-
-
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             Platform.exit();
@@ -122,8 +98,11 @@ public class Controller implements Initializable {
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
 
+        List<String> actives = clientService.getActives();
         // FIXME: get the user list from server, the current user's name should be filtered out
-        userSel.getItems().addAll("Item 1", "Item 2", "Item 3");
+        for (String active : actives) {
+            userSel.getItems().addAll(active);
+        }
 
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
@@ -131,9 +110,9 @@ public class Controller implements Initializable {
             stage.close();
         });
 
-        HBox box = new HBox(10);
+        HBox box = new HBox(200);
         box.setAlignment(Pos.CENTER);
-        box.setPadding(new Insets(20, 20, 20, 20));
+        box.setPadding(new Insets(30, 30, 30, 30));
         box.getChildren().addAll(userSel, okBtn);
         stage.setScene(new Scene(box));
         stage.showAndWait();
