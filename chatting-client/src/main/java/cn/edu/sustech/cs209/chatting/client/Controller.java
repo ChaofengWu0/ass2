@@ -17,6 +17,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -34,6 +35,12 @@ public class Controller implements Initializable {
     private ClientService clientService;
     // ArrayList<Socket> arrayList;
 
+    public void check() throws IOException {
+        // 发送给服务器，让服务器去查询当前username有没有在数据库中
+        Message handshaking1 = new Message(0, this.username);
+        out.writeObject(handshaking1);
+        out.flush();
+    }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -43,53 +50,49 @@ public class Controller implements Initializable {
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
-        try {
-            socket = new Socket("localhost", 9999);
-            out = new ObjectOutputStream(socket.getOutputStream());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
 
         Optional<String> input = dialog.showAndWait();
         if (input.isPresent() && !input.get().isEmpty()) {
+            username = input.get();
             /*
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
-            username = input.get();
-
-
             try {
+                socket = new Socket("localhost", 9999);
+                out = new ObjectOutputStream(socket.getOutputStream());
                 // 发送给服务器，让服务器去查询当前username有没有在数据库中
                 Message handshaking1 = new Message(0, username);
                 out.writeObject(handshaking1);
                 out.flush();
-
-                clientService = new ClientService(socket, username);
-                clientService.setActives(new ArrayList<>());
-                Thread thread = new Thread(clientService);
-                thread.start();
-
-                while (!clientService.getLogin()) {
-                    // in = new ObjectInputStream(socket.getInputStream());
-                    // Object obj = in.readObject();
-                    // if (obj != null) {
-                    //     Message message = (Message) obj;
-                    //     if (message.getType() == 1 && message.getData().equals("success")) {
-                    //         // clientService = new ClientService(socket, username);
-                    //         // clientService.setActives(new ArrayList<>());
-                    //         // Thread thread = new Thread(clientService);
-                    //         // thread.start();
-                    //         System.out.println("after start..");
-                    //     }
-                    //     break;
-                    // }
+                while (true) {
+                    in = new ObjectInputStream(socket.getInputStream());
+                    Object obj = in.readObject();
+                    if (obj == null) continue;
+                    Message message = (Message) obj;
+                    if (message.getType() == 1 && message.getData().equals("success")) {
+                        clientService = new ClientService(socket);
+                        Thread thread = new Thread(clientService);
+                        System.out.println("clientService runs...");
+                        thread.start();
+                    }
+                    break;
                 }
-            } catch (IOException e) {
+            } catch (IOException | ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
-            System.out.println("username" + username);
+
+
+            // System.out.println(socket);
+            // clientService = new ClientService(socket, username);
+            // Thread thread = new Thread(clientService);
+            // thread.start();
+            // while (!clientService.getLogin()) {
+            //
+            // }
+            // System.out.println("after wait");
+            System.out.println("username: " + username);
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             Platform.exit();
@@ -100,7 +103,6 @@ public class Controller implements Initializable {
     @FXML
     public void createPrivateChat() {
         // clientService.doClientService();
-
         AtomicReference<String> user = new AtomicReference<>();
 
         Stage stage = new Stage();

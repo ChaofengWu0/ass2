@@ -40,47 +40,41 @@ public class ServerService implements Runnable {
     @Override
     public void run() {
         try {
-            try {
-                connection = getConnection();
-                System.out.println("serverService run...");
-                in = new ObjectInputStream(new BufferedInputStream(client.getInputStream()));
-                out = new ObjectOutputStream(new BufferedOutputStream(client.getOutputStream()));
-                doService();
-            } finally {
-                client.close();
-            }
-        } catch (ClassNotFoundException e) {
-            // System.out.println("client " + client.getPort() + " closed");
-            throw new RuntimeException(e);
-        } catch (IOException | SQLException e) {
+            // try {
+            connection = getConnection();
+            in = new ObjectInputStream(client.getInputStream());
+            out = new ObjectOutputStream(client.getOutputStream());
+            System.out.println("serverService run...");
+            doService();
+            // } finally {
+            //     client.close();
+            // }
+        } catch (ClassNotFoundException | IOException | SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
     public void doService() throws IOException, ClassNotFoundException, SQLException {
         while (true) {
+            System.out.println("doService before in");
             Object obj = in.readObject();
+            System.out.println("doService after in");
             if (obj == null) continue;
             Message message = (Message) obj;
             int type = message.getType();
             switch (type) {
                 case 0: {
                     // 这里面还没有完善，要自己再弄弄
-                    System.out.println("case 0");
+                    System.out.println("server case 0");
                     searchWhetherRunnable(message.getData());
                     break;
                 }
                 case 2: {
-                    System.out.println("case 2");
+                    System.out.println("server case 2");
                     searchHowManyActive();
                     break;
                 }
             }
-            // Integer sendTo = Integer.parseInt(message.getSendTo());
-            // Integer sendBy = Integer.parseInt(message.getSentBy());
-            // System.out.println(sendBy);
-            // out = new ObjectOutputStream(hashMap.get(sendTo).getOutputStream());
-            // out.writeObject(message);
         }
     }
 
@@ -128,15 +122,14 @@ public class ServerService implements Runnable {
             } else {
                 Message loginFailed = new Message(1, "failed");
                 out.writeObject(loginFailed);
+                out.flush();
                 System.out.println("您的帐号在其他地方已经登陆");
             }
             // }
             // else {
             // 可以创建并且可以登录
             // }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } catch (IOException e) {
+        } catch (SQLException | IOException e) {
             throw new RuntimeException(e);
         }
     }
