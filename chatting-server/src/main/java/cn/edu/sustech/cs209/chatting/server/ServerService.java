@@ -22,6 +22,7 @@ public class ServerService implements Runnable {
         this.client = client;
         this.hashMap = hashMap;
     }
+
     public Connection getConnection() throws ClassNotFoundException {
         Class.forName("com.mysql.cj.jdbc.Driver");
         Connection conn = null;
@@ -43,7 +44,7 @@ public class ServerService implements Runnable {
                 connection = getConnection();
                 System.out.println("serverService run...");
                 in = new ObjectInputStream(new BufferedInputStream(client.getInputStream()));
-                out = new ObjectOutputStream(client.getOutputStream());
+                out = new ObjectOutputStream(new BufferedOutputStream(client.getOutputStream()));
                 doService();
             } finally {
                 client.close();
@@ -65,10 +66,12 @@ public class ServerService implements Runnable {
             switch (type) {
                 case 0: {
                     // 这里面还没有完善，要自己再弄弄
+                    System.out.println("case 0");
                     searchWhetherRunnable(message.getData());
                     break;
                 }
                 case 2: {
+                    System.out.println("case 2");
                     searchHowManyActive();
                     break;
                 }
@@ -116,7 +119,6 @@ public class ServerService implements Runnable {
                 // allowLogin.setInt(1, 1);
                 // allowLogin.setString(2, username);
                 // allowLogin.execute();
-
 
                 // 发送信息给client
                 Message loginSuccess = new Message(1, "success");

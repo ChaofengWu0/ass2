@@ -59,40 +59,48 @@ public class Controller implements Initializable {
              */
             username = input.get();
 
+
             try {
                 // 发送给服务器，让服务器去查询当前username有没有在数据库中
                 Message handshaking1 = new Message(0, username);
                 out.writeObject(handshaking1);
                 out.flush();
-                while (true) {
-                    in = new ObjectInputStream(socket.getInputStream());
-                    Object obj = in.readObject();
-                    if (obj != null) {
-                        Message message = (Message) obj;
-                        if (message.getType() == 1 && message.getData().equals("success")) {
-                            clientService = new ClientService(socket);
-                            clientService.setActives(new ArrayList<>());
-                            Thread thread = new Thread(clientService);
-                            System.out.println("clientService runs...");
-                            thread.start();
-                        }
-                        break;
-                    }
+
+                clientService = new ClientService(socket, username);
+                clientService.setActives(new ArrayList<>());
+                Thread thread = new Thread(clientService);
+                thread.start();
+
+                while (!clientService.getLogin()) {
+                    // in = new ObjectInputStream(socket.getInputStream());
+                    // Object obj = in.readObject();
+                    // if (obj != null) {
+                    //     Message message = (Message) obj;
+                    //     if (message.getType() == 1 && message.getData().equals("success")) {
+                    //         // clientService = new ClientService(socket, username);
+                    //         // clientService.setActives(new ArrayList<>());
+                    //         // Thread thread = new Thread(clientService);
+                    //         // thread.start();
+                    //         System.out.println("after start..");
+                    //     }
+                    //     break;
+                    // }
                 }
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            System.out.println(username);
+            System.out.println("username" + username);
         } else {
             System.out.println("Invalid username " + input + ", exiting");
             Platform.exit();
         }
-
         chatContentList.setCellFactory(new MessageCellFactory());
     }
 
     @FXML
     public void createPrivateChat() {
+        // clientService.doClientService();
+
         AtomicReference<String> user = new AtomicReference<>();
 
         Stage stage = new Stage();
