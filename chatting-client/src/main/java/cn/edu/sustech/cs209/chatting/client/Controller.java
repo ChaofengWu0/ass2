@@ -61,37 +61,39 @@ public class Controller implements Initializable {
              */
             try {
                 socket = new Socket("localhost", 9999);
-                out = new ObjectOutputStream(socket.getOutputStream());
+                // out = new ObjectOutputStream(socket.getOutputStream());
+                // System.out.println("out");
+                // in = new ObjectInputStream(socket.getInputStream());
+                System.out.println("in");
+                System.out.println(socket);
+                clientService = new ClientService(socket, username);
+                Thread thread = new Thread(clientService);
+                thread.start();
+                // while (!clientService.getLogin()) {
+                // }
+                System.out.println("after wait");
+
                 // 发送给服务器，让服务器去查询当前username有没有在数据库中
-                Message handshaking1 = new Message(0, username);
-                out.writeObject(handshaking1);
-                out.flush();
-                while (true) {
-                    in = new ObjectInputStream(socket.getInputStream());
-                    Object obj = in.readObject();
-                    if (obj == null) continue;
-                    Message message = (Message) obj;
-                    if (message.getType() == 1 && message.getData().equals("success")) {
-                        clientService = new ClientService(socket);
-                        Thread thread = new Thread(clientService);
-                        System.out.println("clientService runs...");
-                        thread.start();
-                    }
-                    break;
-                }
-            } catch (IOException | ClassNotFoundException e) {
+                // Message handshaking1 = new Message(0, username);
+                // out.writeObject(handshaking1);
+                // out.flush();
+                // while (true) {
+                //     Object obj = in.readObject();
+                //     if (obj == null) continue;
+                //     Message message = (Message) obj;
+                //     if (message.getType() == 1 && message.getData().equals("success")) {
+                //         clientService = new ClientService(socket);
+                //         Thread thread = new Thread(clientService);
+                //         System.out.println("clientService runs...");
+                //         thread.start();
+                //     }
+                //     break;
+                // }
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
 
 
-            // System.out.println(socket);
-            // clientService = new ClientService(socket, username);
-            // Thread thread = new Thread(clientService);
-            // thread.start();
-            // while (!clientService.getLogin()) {
-            //
-            // }
-            // System.out.println("after wait");
             System.out.println("username: " + username);
         } else {
             System.out.println("Invalid username " + input + ", exiting");
@@ -124,7 +126,7 @@ public class Controller implements Initializable {
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(30, 30, 30, 30));
         box.getChildren().addAll(userSel, okBtn);
-        stage.setScene(new Scene(box));
+        stage.setScene(new Scene(box,300,400));
         stage.showAndWait();
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
@@ -196,4 +198,120 @@ public class Controller implements Initializable {
             };
         }
     }
+
+
+
+    public static class ClientService implements Runnable {
+        private final Socket socket;
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+        private Integer type;
+
+        private Boolean login;
+        private String username;
+        private List<String> actives;
+
+        //
+        // public ClientService(Socket socket) {
+        //     this.socket = socket;
+        // }
+
+        public ClientService(Socket socket, String username) {
+            this.socket = socket;
+            this.username = username;
+            // String test = username;
+            this.actives = new ArrayList<>();
+            this.login = false;
+        }
+
+        @Override
+        public void run() {
+            try {
+                try {
+                    System.out.println("run...");
+                    out = new ObjectOutputStream(this.socket.getOutputStream());
+                    System.out.println("out");
+                    in = new ObjectInputStream(this.socket.getInputStream());
+                    System.out.println("clientService runs...");
+                    doClientService();
+                } finally {
+                    socket.close();
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void doClientService() throws IOException, ClassNotFoundException {
+            check();
+            while (true) {
+                Object obj = in.readObject();
+                if (obj == null) continue;
+                Message message = (Message) obj;
+                int type = message.getType();
+                switch (type) {
+                    case 1: {
+                        System.out.println("client case 1");
+                        whetherLogin(message);
+                        break;
+                    }
+                    case 3: {
+                        System.out.println("client case 3");
+                        // 获取到了目前有多少人在线
+                        this.actives = message.getActives();
+                        break;
+                    }
+                }
+            }
+        }
+
+        public void check() throws IOException {
+            System.out.println("do check");
+            // 发送给服务器，让服务器去查询当前username有没有在数据库中
+            Message handshaking1 = new Message(0, this.username);
+            out.writeObject(handshaking1);
+            System.out.println("check success");
+            out.flush();
+        }
+
+        public void whetherLogin(Message message) throws IOException {
+            if (message.getData().equals("success")) {
+                this.login = true;
+                System.out.println("send howMany message");
+                // 要查询一下有多少个人
+                Message howMany = new Message(2, "case2");
+                out.writeObject(howMany);
+                out.flush();
+            } else {
+                System.out.println("你的账号已在其他地方登录或密码错误");
+            }
+        }
+
+
+        public Integer getType() {
+            return type;
+        }
+
+        public void setType(Integer type) {
+            this.type = type;
+        }
+
+        public List<String> getActives() {
+            return actives;
+        }
+
+        public void setActives(List<String> actives) {
+            this.actives = actives;
+        }
+
+        public Boolean getLogin() {
+            return login;
+        }
+
+        public void setLogin(Boolean login) {
+            this.login = login;
+        }
+    }
+
+
 }

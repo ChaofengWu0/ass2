@@ -15,22 +15,22 @@ public class Main {
         ConcurrentHashMap<String, Socket> observer = new ConcurrentHashMap<>();
         System.out.println("Starting server");
 
-        new Thread(
-                () -> {
-                    while (true) {
-                        // 不断监听有没有新的client建立
-                        Socket newClient = null;
-                        try {
-                            newClient = serverSocket.accept();
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        System.out.println("Client started and the client is " + newClient);
-                        ServerService service = new ServerService(newClient, observer);
-                        Thread thread = new Thread(service);
-                        thread.start();
-                    }
-                }
-        ).start();
+        // new Thread(
+        //         () -> {
+        while (true) {
+            // 不断监听有没有新的client建立
+            Socket newClient = null;
+            try {
+                newClient = serverSocket.accept();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            System.out.println("Client started and the client is " + newClient);
+            ServerService service = new ServerService(newClient, observer);
+            Thread thread = new Thread(service);
+            thread.start();
+        }
+        //         }
+        // ).start();
     }
 }
