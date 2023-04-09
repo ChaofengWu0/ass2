@@ -144,6 +144,9 @@ public class ServerService implements Runnable {
         while (rs.next()) {
             actives.add(rs.getString(1));
         }
+        for (String active : actives) {
+            System.out.println("actives : " + active);
+        }
         Message howManyActiveResponse = new Message(3, actives);
         out.writeObject(howManyActiveResponse);
         out.flush();
