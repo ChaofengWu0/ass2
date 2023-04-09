@@ -20,12 +20,17 @@ import java.net.URL;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Controller implements Initializable {
 
     @FXML
+    private Label currentUsername;
+    @FXML
     ListView<Message> chatContentList;
 
+
+    private ReentrantLock lock;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -45,7 +50,7 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         // this.arrayList = new ArrayList<>();
-
+        lock = new ReentrantLock();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -61,22 +66,24 @@ public class Controller implements Initializable {
              */
             try {
                 socket = new Socket("localhost", 9999);
-                // out = new ObjectOutputStream(socket.getOutputStream());
+                out = new ObjectOutputStream(socket.getOutputStream());
                 // System.out.println("out");
-                // in = new ObjectInputStream(socket.getInputStream());
+                in = new ObjectInputStream(socket.getInputStream());
                 System.out.println("in");
                 System.out.println(socket);
-                clientService = new ClientService(socket, username);
+                clientService = new ClientService(socket, username, in, out, lock);
                 Thread thread = new Thread(clientService);
                 thread.start();
+                currentUsername.setText("Current User: " + username);
                 // while (!clientService.getLogin()) {
                 // }
                 System.out.println("after wait");
-
+                lock.lock();
                 // 发送给服务器，让服务器去查询当前username有没有在数据库中
-                // Message handshaking1 = new Message(0, username);
-                // out.writeObject(handshaking1);
-                // out.flush();
+                Message handshaking1 = new Message(0, username);
+                out.writeObject(handshaking1);
+                out.flush();
+                lock.unlock();
                 // while (true) {
                 //     Object obj = in.readObject();
                 //     if (obj == null) continue;
@@ -126,7 +133,7 @@ public class Controller implements Initializable {
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(30, 30, 30, 30));
         box.getChildren().addAll(userSel, okBtn);
-        stage.setScene(new Scene(box,300,400));
+        stage.setScene(new Scene(box, 300, 400));
         stage.showAndWait();
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
@@ -200,9 +207,10 @@ public class Controller implements Initializable {
     }
 
 
-
     public static class ClientService implements Runnable {
         private final Socket socket;
+
+        private ReentrantLock lock;
         private ObjectInputStream in;
         private ObjectOutputStream out;
         private Integer type;
@@ -211,27 +219,37 @@ public class Controller implements Initializable {
         private String username;
         private List<String> actives;
 
+        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock lock) {
+            this.lock = lock;
+            this.socket = socket;
+            this.username = username;
+            this.in = in;
+            this.out = out;
+            this.actives = new ArrayList<>();
+            this.login = false;
+        }
+
         //
         // public ClientService(Socket socket) {
         //     this.socket = socket;
         // }
 
-        public ClientService(Socket socket, String username) {
-            this.socket = socket;
-            this.username = username;
-            // String test = username;
-            this.actives = new ArrayList<>();
-            this.login = false;
-        }
+        // public ClientService(Socket socket, String username) {
+        //     this.socket = socket;
+        //     this.username = username;
+        //     // String test = username;
+        //     this.actives = new ArrayList<>();
+        //     this.login = false;
+        // }
 
         @Override
         public void run() {
             try {
                 try {
                     System.out.println("run...");
-                    out = new ObjectOutputStream(this.socket.getOutputStream());
+                    // out = new ObjectOutputStream(this.socket.getOutputStream());
                     System.out.println("out");
-                    in = new ObjectInputStream(this.socket.getInputStream());
+                    // in = new ObjectInputStream(this.socket.getInputStream());
                     System.out.println("clientService runs...");
                     doClientService();
                 } finally {
@@ -243,22 +261,30 @@ public class Controller implements Initializable {
         }
 
         public void doClientService() throws IOException, ClassNotFoundException {
+            lock.lock();
             check();
+            lock.unlock();
             while (true) {
+                // lock.lock();
                 Object obj = in.readObject();
+                // lock.unlock();
                 if (obj == null) continue;
                 Message message = (Message) obj;
                 int type = message.getType();
                 switch (type) {
                     case 1: {
+                        lock.lock();
                         System.out.println("client case 1");
                         whetherLogin(message);
+                        lock.unlock();
                         break;
                     }
                     case 3: {
+                        lock.lock();
                         System.out.println("client case 3");
                         // 获取到了目前有多少人在线
                         this.actives = message.getActives();
+                        lock.unlock();
                         break;
                     }
                 }
