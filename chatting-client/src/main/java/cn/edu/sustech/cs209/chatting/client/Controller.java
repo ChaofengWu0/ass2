@@ -9,6 +9,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
@@ -17,7 +18,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -26,19 +26,22 @@ public class Controller implements Initializable {
 
     @FXML
     private Label currentUsername;
+
+    @FXML
+    private Label currentOnlineCnt;
+
     @FXML
     ListView<Message> chatContentList;
 
 
     private ReentrantLock lock;
+    private ReentrantLock inLock;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
     private Socket socket;
     private String username;
-
     private ClientService clientService;
-    // ArrayList<Socket> arrayList;
 
     public void check() throws IOException {
         // 发送给服务器，让服务器去查询当前username有没有在数据库中
@@ -52,6 +55,7 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         // this.arrayList = new ArrayList<>();
+        inLock = new ReentrantLock();
         lock = new ReentrantLock();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
@@ -67,21 +71,20 @@ public class Controller implements Initializable {
                      if so, ask the user to change the username
              */
             try {
-                socket = new Socket("localhost", 9999);
+                socket = new Socket("localhost", serverPort);
                 System.out.println("in");
                 out = new ObjectOutputStream(socket.getOutputStream());
                 System.out.println("out");
                 in = new ObjectInputStream(socket.getInputStream());
-
-
-                // 第一次打招呼
-                // System.out.println("in");
-                // System.out.println(socket);
-                clientService = new ClientService(socket, username, in, out, lock);
+                System.out.println(socket);
+                clientService = new ClientService(socket, username, in, out, inLock);
                 Thread thread = new Thread(clientService);
                 thread.start();
+
+                // handshaking1
                 check();
-                while (clientService.getFlag1() == null) {
+                while (clientService.getFlagCheckLogin() == null) {
+
                 }
 //                 // login没成功，走这里,要弹出警告
                 if (!clientService.getLogin()) {
@@ -91,7 +94,6 @@ public class Controller implements Initializable {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-
             System.out.println("username: " + username);
         } else {
             System.out.println("Invalid username " + input + ", exiting");
@@ -100,30 +102,59 @@ public class Controller implements Initializable {
         chatContentList.setCellFactory(new MessageCellFactory());
     }
 
-
     public void searchHowMany() throws IOException {
         lock.lock();
         Message howMany = new Message(2, "case2");
         out.writeObject(howMany);
         out.flush();
         lock.unlock();
+        while (!clientService.getFlagSearchActives()) {
+        }
+        clientService.setFlagSearchActives(false);
     }
 
+    // public void listhandShaking1(String username) throws IOException {
+    //     lock.lock();
+    //     Message linkSetUp = new Message(4, username);
+    //     out.writeObject(linkSetUp);
+    //     out.flush();
+    //     lock.unlock();
+    // }
+
+    // public boolean linkSetUp(String username) throws IOException, InterruptedException {
+    //     if (clientService.hasLinks.contains(username)) {
+    //         System.out.println("已经和这个client建立过连接了，不需要再建立，源自linkSetUp这个方法");
+    //         return false;
+    //     } else {
+    //         // 发送handshaking1的消息给server，server要处理这个消息，并且转发给client2
+    //         listhandShaking1(username);
+    //         Thread.sleep(200);
+    //         System.out.println("link has set up");
+    //         // System.out.println("before while in linkSetup");
+    //         // while (!clientService.getFlagSetRequest()) {
+    //         // }
+    //         // clientService.setFlagSetRequest(false);
+    //         // System.out.println("after while in linkSetup");
+    //         // System.out.println("linkSetUp success");
+    //         return true;
+    //     }
+    // }
+
     @FXML
-    public void createPrivateChat() throws InterruptedException, IOException {
+    public void createPrivateChat() throws IOException {
         AtomicReference<String> user = new AtomicReference<>();
 
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
 
         searchHowMany();
-        Thread.sleep(1000);
-        System.out.println("get actives");
         List<String> actives = clientService.getActives();
         // FIXME: get the user list from server, the current user's name should be filtered out
         for (String active : actives) {
             userSel.getItems().add(active);
         }
+        this.currentOnlineCnt.setText(String.valueOf(actives.size()));
+
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
             user.set(userSel.getSelectionModel().getSelectedItem());
@@ -131,12 +162,47 @@ public class Controller implements Initializable {
         });
 
 
-        HBox box = new HBox(300);
+        // 这个box时用来选择的那个东西
+        HBox box = new HBox(200);
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(30, 30, 30, 30));
         box.getChildren().addAll(userSel, okBtn);
         stage.setScene(new Scene(box));
         stage.showAndWait();
+
+        // 选了用户并且点了ok之后.
+        String selectedUser = user.get();
+        if (clientService.hasLinks.contains(selectedUser)) {
+            System.out.println("已经有这个链接了");
+            // 打开就好
+        } else {
+            clientService.hasLinks.add(selectedUser);
+            // 建立一个box
+            clientService.hasLinks.add(selectedUser);
+            // 建立一个box
+            VBox chatItem = new VBox();
+            Label titleLabel = new Label(selectedUser);
+            // .getChildren().add(titleLabel);
+            // chatItem.getStyleClass().add("chat-item");
+            chatItem.setOnMouseClicked(event -> {
+                // TODO: 点击打开聊天框
+            });
+            // leftPanel.getChildren().add(chatItem);
+
+        }
+        // listhandShaking1(selectedUser);
+        // if (linkSetUp(selectedUser)) {
+        // //     // System.out.println("after set up");
+        // //     // Stage chatStage = new Stage();
+        // //     // VBox chatBox = new VBox(10);
+        // //     // chatBox.setPadding(new Insets(10));
+        // //     // chatBox.setAlignment(Pos.TOP_LEFT);
+        // //     //
+        // //     // TextArea chatArea = new TextArea();
+        // //     // chatArea.setEditable(false);
+        // } else {
+        // }
+
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
@@ -212,25 +278,40 @@ public class Controller implements Initializable {
     public static class ClientService implements Runnable {
         private final Socket socket;
 
-        // private ReentrantLock lock;
+        private ReentrantLock inLock;
         private ObjectInputStream in;
         private ObjectOutputStream out;
         private Integer type;
 
-        private Boolean flag1;
+        private Boolean flagCheckLogin;
+
+        private Boolean flagSearchActives;
+        // private Boolean flagSetRequest;
+        // private Boolean flagHandshakingReceive1;
+        // private Boolean flagHandshakingReceive2;
+
         private Boolean login;
         private String username;
         private List<String> actives;
+        private List<String> hasLinks;
 
-        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock lock) {
-            ReentrantLock tmp = lock;
+        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock inLock) {
+            // ReentrantLock tmp = lock;
+            this.inLock = inLock;
+
+
             this.socket = socket;
             this.username = username;
             this.in = in;
             this.out = out;
             this.actives = new ArrayList<>();
             this.login = false;
-            // this.flag1 = false;
+            this.flagCheckLogin = false;
+            this.flagSearchActives = false;
+            // this.flagSetRequest = false;
+            // this.flagHandshakingReceive1 = false;
+            // this.flagHandshakingReceive2 = false;
+            this.hasLinks = new ArrayList<>();
         }
 
         @Override
@@ -248,9 +329,11 @@ public class Controller implements Initializable {
 
         public void doClientService() throws IOException, ClassNotFoundException {
             while (true) {
+                inLock.lock();
                 System.out.println("before in");
                 Object obj = in.readObject();
                 System.out.println("after in");
+                inLock.unlock();
                 if (obj == null) continue;
                 Message message = (Message) obj;
                 int type = message.getType();
@@ -258,7 +341,7 @@ public class Controller implements Initializable {
                     case 1: {
                         System.out.println("client case 1");
                         whetherLogin(message);
-                        this.flag1 = true;
+                        this.flagCheckLogin = true;
                         break;
                     }
                     case 3: {
@@ -267,18 +350,19 @@ public class Controller implements Initializable {
                         getHowManyActives(message);
                         break;
                     }
+                    case 5: {
+                        System.out.println("client case 5");
+                        addLinks(message);
+                        break;
+                    }
+                    // case 7: {
+                    //     System.out.println("client case 7");
+                    //     handShaking2(message);
+                    //     break;
+                    // }
                 }
             }
         }
-
-        // public void check() throws IOException {
-        //     System.out.println("do check");
-        //     // 发送给服务器，让服务器去查询当前username有没有在数据库中
-        //     Message handshaking1 = new Message(0, this.username);
-        //     out.writeObject(handshaking1);
-        //     System.out.println("check success");
-        //     out.flush();
-        // }
 
         public void whetherLogin(Message message) {
             if (message.getData().equals("success")) {
@@ -290,12 +374,42 @@ public class Controller implements Initializable {
         }
 
         public void getHowManyActives(Message message) {
-            for (int i = 0; i < message.getActives().size(); i++) {
-                System.out.println(message.getActives().get(i));
-            }
             this.setActives(message.getActives());
+            this.setFlagSearchActives(true);
         }
 
+        public void addLinks(Message message) {
+            this.hasLinks.add(message.getData());
+        }
+
+        // public void handShaking1(Message message) throws IOException {
+        //     if (this.hasLinks.contains(message.getData())) {
+        //         // 这个地方可以弹出窗口
+        //         System.out.println("已经有链接了，不需要再建立，可以直接通信");
+        //     } else {
+        //         hasLinks.add(message.getData());
+        //     }
+        //     System.out.println("the username is this socket is : " + this.username +
+        //             "and it has set up a link with " + message.getData());
+        //     this.setFlagSetRequest(true);
+        //     handShakingBack(message);
+        // }
+        //
+        // public void handShakingBack(Message message) throws IOException {
+        //     Message handShaking2 = new Message(4, message.getData());
+        //     lock.lock();
+        //     out.writeObject(handShaking2);
+        //     out.flush();
+        //     lock.unlock();
+        // }
+
+        public Boolean getFlagSearchActives() {
+            return flagSearchActives;
+        }
+
+        public void setFlagSearchActives(Boolean flagSearchActives) {
+            this.flagSearchActives = flagSearchActives;
+        }
 
         public Integer getType() {
             return type;
@@ -321,14 +435,37 @@ public class Controller implements Initializable {
             this.login = login;
         }
 
-
-        public Boolean getFlag1() {
-            return flag1;
+        public Boolean getFlagCheckLogin() {
+            return flagCheckLogin;
         }
 
-        public void setFlag1(Boolean flag1) {
-            this.flag1 = flag1;
+        public void setFlagCheckLogin(Boolean flagCheckLogin) {
+            this.flagCheckLogin = flagCheckLogin;
         }
+
+        // public Boolean getFlagSetRequest() {
+        //     return flagSetRequest;
+        // }
+        //
+        // public void setFlagSetRequest(Boolean flagSetRequest) {
+        //     this.flagSetRequest = flagSetRequest;
+        // }
+
+        // public Boolean getFlagHandshakingReceive1() {
+        //     return flagHandshakingReceive1;
+        // }
+        //
+        // public void setFlagHandshakingReceive1(Boolean flagHandshakingReceive1) {
+        //     this.flagHandshakingReceive1 = flagHandshakingReceive1;
+        // }
+
+        // public Boolean getFlagHandshakingReceive2() {
+        //     return flagHandshakingReceive2;
+        // }
+        //
+        // public void setFlagHandshakingReceive2(Boolean flagHandshakingReceive2) {
+        //     this.flagHandshakingReceive2 = flagHandshakingReceive2;
+        // }
     }
 
 

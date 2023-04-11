@@ -12,11 +12,9 @@ public class Main {
 
         // server的端口号为9999
         ServerSocket serverSocket = new ServerSocket(9999);
-        ConcurrentHashMap<String, Socket> observer = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, ServerService> observer = new ConcurrentHashMap<>();
         System.out.println("Starting server");
 
-        // new Thread(
-        //         () -> {
         while (true) {
             // 不断监听有没有新的client建立
             Socket newClient = null;
@@ -28,9 +26,8 @@ public class Main {
             System.out.println("Client started and the client is " + newClient);
             ServerService service = new ServerService(newClient, observer);
             Thread thread = new Thread(service);
+
             thread.start();
         }
-        //         }
-        // ).start();
     }
 }

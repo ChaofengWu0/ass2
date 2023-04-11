@@ -8,19 +8,25 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ServerService implements Runnable {
     private Socket client;
+    private ReentrantLock lock;
+    private ReentrantLock outLock;
+    private ReentrantLock inLock;
+
+
     private ObjectInputStream in;
     private ObjectOutputStream out;
-    private ConcurrentHashMap<String, Socket> hashMap;
-
+    private ConcurrentHashMap<String, ServerService> hashMap;
     private Connection connection;
 
-    public ServerService(Socket client, ConcurrentHashMap<String, Socket> hashMap) {
+    public ServerService(Socket client, ConcurrentHashMap<String, ServerService> hashMap) throws IOException {
         this.client = client;
         this.hashMap = hashMap;
+        in = new ObjectInputStream(client.getInputStream());
+        out = new ObjectOutputStream(client.getOutputStream());
     }
 
     public Connection getConnection() throws ClassNotFoundException {
@@ -39,26 +45,29 @@ public class ServerService implements Runnable {
 
     @Override
     public void run() {
+        lock = new ReentrantLock();
+        outLock = new ReentrantLock();
+        inLock = new ReentrantLock();
         try {
             // try {
             connection = getConnection();
-            in = new ObjectInputStream(client.getInputStream());
-            out = new ObjectOutputStream(client.getOutputStream());
             System.out.println("serverService run...");
             doService();
             // } finally {
             //     client.close();
             // }
         } catch (ClassNotFoundException | IOException | SQLException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 
-    public void doService() throws IOException, ClassNotFoundException, SQLException {
+    public synchronized void doService() throws IOException, ClassNotFoundException, SQLException {
         while (true) {
+            inLock.lock();
             System.out.println("doService before in");
             Object obj = in.readObject();
             System.out.println("doService after in");
+            inLock.unlock();
             if (obj == null) continue;
             Message message = (Message) obj;
             int type = message.getType();
@@ -67,6 +76,7 @@ public class ServerService implements Runnable {
                     // 这里面还没有完善，要自己再弄弄
                     System.out.println("server case 0");
                     searchWhetherRunnable(message.getData());
+                    System.out.println("message data: " + message.getData());
                     break;
                 }
                 case 2: {
@@ -74,6 +84,16 @@ public class ServerService implements Runnable {
                     searchHowManyActive();
                     break;
                 }
+                case 4: {
+                    System.out.println("server case 4");
+                    establishLink1(message);
+                    break;
+                }
+                // case 6:{
+                //     System.out.println("server case 6");
+                //     establishLink2(message);
+                //     break;
+                // }
             }
         }
     }
@@ -105,8 +125,9 @@ public class ServerService implements Runnable {
             if (status != null && status == 0) {
                 // 可以登录
                 // 既然可以登录，那么记录此次登录，给hashmap填充
-                hashMap.put(username, client);
-
+                lock.lock();
+                hashMap.put(username, this);
+                lock.unlock();
                 /**
                  * 暂时先注释
                  */
@@ -116,13 +137,17 @@ public class ServerService implements Runnable {
 
                 // 发送信息给client
                 Message loginSuccess = new Message(1, "success");
+                outLock.lock();
                 out.writeObject(loginSuccess);
                 out.flush();
+                outLock.unlock();
                 System.out.println("成功登录");
             } else {
                 Message loginFailed = new Message(1, "failed");
+                outLock.lock();
                 out.writeObject(loginFailed);
                 out.flush();
+                outLock.unlock();
                 System.out.println("您的帐号在其他地方已经登陆");
             }
             // }
@@ -144,12 +169,39 @@ public class ServerService implements Runnable {
         while (rs.next()) {
             actives.add(rs.getString(1));
         }
-        for (String active : actives) {
-            System.out.println("actives : " + active);
-        }
         Message howManyActiveResponse = new Message(3, actives);
+        outLock.lock();
         out.writeObject(howManyActiveResponse);
         out.flush();
+        outLock.unlock();
+    }
+
+    public void establishLink1(Message message) {
+        String username = message.getData();
+        lock.lock();
+        ServerService sendTo = hashMap.get(username);
+        lock.unlock();
+        System.out.println(sendTo);
+        try {
+
+            // ObjectOutputStream objectOutputStream = new ObjectOutputStream(sendTo.getOutputStream());
+            System.out.println("before message5");
+            // Message establishMsg = new Message(5, String.valueOf(client.getPort()));
+            Message establishMsg = new Message(5, username);
+            System.out.println(client.getPort());
+
+            outLock.lock();
+            // System.out.println(objectOutputStream);
+            sendTo.out.writeObject(establishMsg);
+            sendTo.out.flush();
+            outLock.unlock();
+
+            System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + username);
+            System.out.println("finish send request");
+            // objectOutputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }

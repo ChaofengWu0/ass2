@@ -21,6 +21,21 @@ public class Message implements Serializable {
     // 1为server回给client是否可以登录
     // 2为client向server询问当前在线的用户分别是谁。
     // 3为server向client告知现在在线的有多少,以list形式返回，list里面装的是client的username。
+    /**
+     * 4到7不要
+     */
+
+    // /**
+    //  * handshaking step1
+    //  */
+    // 4为client1向server发送与client2建立连接的请求。
+    // 5为server向client2转发建立连接的请求
+
+    // /**
+    //  * handshaking step2暂时不要这个
+    //  */
+    // 6为client2向server发送与client1建立连接的请求。
+    // 7为server向client1转发建立连接的请求
     private int type;
 
 
@@ -31,6 +46,12 @@ public class Message implements Serializable {
 
     public Message(int type, List<String> actives) {
         this.actives = actives;
+        this.type = type;
+    }
+
+    public Message(String sentBy, String sendTo, int type) {
+        this.sentBy = sentBy;
+        this.sendTo = sendTo;
         this.type = type;
     }
 
