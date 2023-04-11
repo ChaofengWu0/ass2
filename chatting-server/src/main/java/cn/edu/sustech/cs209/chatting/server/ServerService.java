@@ -61,7 +61,7 @@ public class ServerService implements Runnable {
         }
     }
 
-    public void doService() throws IOException, ClassNotFoundException, SQLException {
+    public synchronized void doService() throws IOException, ClassNotFoundException, SQLException {
         while (true) {
             // inLock.lock();
             System.out.println("doService before in");

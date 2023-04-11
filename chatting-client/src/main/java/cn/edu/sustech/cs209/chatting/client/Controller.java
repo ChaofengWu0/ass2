@@ -11,7 +11,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
@@ -20,6 +19,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
@@ -38,9 +38,10 @@ public class Controller implements Initializable {
     @FXML
     ListView<Message> chatContentList;
 
+    private List<String> selectedUsers;
 
     private ReentrantLock searchActiveLock;
-    private ReentrantLock lock;
+    private ReentrantLock lockForSelect;
     private ReentrantLock inLock;
     final int serverPort = 9999;
     private ObjectOutputStream out;
@@ -61,9 +62,10 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         // this.arrayList = new ArrayList<>();
+        selectedUsers = new ArrayList<>();
         searchActiveLock = new ReentrantLock();
-        inLock = new ReentrantLock();
-        lock = new ReentrantLock();
+        // inLock = new ReentrantLock();
+        lockForSelect = new ReentrantLock();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -110,17 +112,17 @@ public class Controller implements Initializable {
     }
 
     public void searchHowMany() throws IOException {
-        // lock.lock();
         Message howMany = new Message(2, "case2");
         System.out.println("before send");
         out.writeObject(howMany);
         System.out.println("after send");
         out.flush();
-        // lock.unlock();
         System.out.println("before while");
+        lockForSelect.lock();
         while (!clientService.getFlagSearchActives()) {
             System.out.println(clientService.getFlagSearchActives());
         }
+        lockForSelect.unlock();
         System.out.println("after while");
         searchActiveLock.lock();
         clientService.setFlagSearchActives(false);
@@ -168,6 +170,8 @@ public class Controller implements Initializable {
             clientService.observableList.add(selectedUser);
             chatList.setItems(clientService.observableList);
         }
+        System.out.println("create finish");
+
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     }
@@ -195,6 +199,11 @@ public class Controller implements Initializable {
     @FXML
     public void doSendMessage() {
         // TODO
+
+        // ObservableList<Message> observableList = FXCollections.observableArrayList();
+        // Long nowTime = System.currentTimeMillis();
+        // observableList.add(new Message(nowTime, username, selectedUser, "test"));
+        // chatContentList.setItems(observableList);
     }
 
     /**
@@ -258,8 +267,6 @@ public class Controller implements Initializable {
 
         public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock searchActiveLock) {
             this.searchActiveLock = searchActiveLock;
-            // this.inLock = inLock;
-
             this.socket = socket;
             this.username = username;
             this.in = in;
@@ -286,13 +293,9 @@ public class Controller implements Initializable {
             }
         }
 
-        public void doClientService() throws IOException, ClassNotFoundException {
+        public synchronized void doClientService() throws IOException, ClassNotFoundException {
             while (true) {
-                // inLock.lock();
-                // System.out.println("before in");
                 Object obj = in.readObject();
-                // System.out.println("after in");
-                // inLock.unlock();
                 if (obj == null) continue;
                 Message message = (Message) obj;
                 int type = message.getType();
@@ -339,34 +342,13 @@ public class Controller implements Initializable {
             this.setActives(message.getActives());
             this.setFlagSearchActives(true);
             System.out.println("after flag");
-            System.out.println(flagSearchActives);
+            System.out.println("getHowManyActives : " + flagSearchActives);
             searchActiveLock.unlock();
         }
 
         public void addLinks(Message message) {
             this.hasLinks.add(message.getData());
         }
-
-        // public void handShaking1(Message message) throws IOException {
-        //     if (this.hasLinks.contains(message.getData())) {
-        //         // 这个地方可以弹出窗口
-        //         System.out.println("已经有链接了，不需要再建立，可以直接通信");
-        //     } else {
-        //         hasLinks.add(message.getData());
-        //     }
-        //     System.out.println("the username is this socket is : " + this.username +
-        //             "and it has set up a link with " + message.getData());
-        //     this.setFlagSetRequest(true);
-        //     handShakingBack(message);
-        // }
-        //
-        // public void handShakingBack(Message message) throws IOException {
-        //     Message handShaking2 = new Message(4, message.getData());
-        //     lock.lock();
-        //     out.writeObject(handShaking2);
-        //     out.flush();
-        //     lock.unlock();
-        // }
 
         public Boolean getFlagSearchActives() {
             return flagSearchActives;
@@ -408,29 +390,6 @@ public class Controller implements Initializable {
             this.flagCheckLogin = flagCheckLogin;
         }
 
-        // public Boolean getFlagSetRequest() {
-        //     return flagSetRequest;
-        // }
-        //
-        // public void setFlagSetRequest(Boolean flagSetRequest) {
-        //     this.flagSetRequest = flagSetRequest;
-        // }
-
-        // public Boolean getFlagHandshakingReceive1() {
-        //     return flagHandshakingReceive1;
-        // }
-        //
-        // public void setFlagHandshakingReceive1(Boolean flagHandshakingReceive1) {
-        //     this.flagHandshakingReceive1 = flagHandshakingReceive1;
-        // }
-
-        // public Boolean getFlagHandshakingReceive2() {
-        //     return flagHandshakingReceive2;
-        // }
-        //
-        // public void setFlagHandshakingReceive2(Boolean flagHandshakingReceive2) {
-        //     this.flagHandshakingReceive2 = flagHandshakingReceive2;
-        // }
     }
 
 
