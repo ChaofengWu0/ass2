@@ -2,6 +2,8 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
@@ -25,15 +27,19 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Controller implements Initializable {
 
     @FXML
-    private Label currentUsername;
+    Label currentUsername;
 
     @FXML
-    private Label currentOnlineCnt;
+    Label currentOnlineCnt;
+
+    @FXML
+    ListView<String> chatList;
 
     @FXML
     ListView<Message> chatContentList;
 
 
+    private ReentrantLock searchActiveLock;
     private ReentrantLock lock;
     private ReentrantLock inLock;
     final int serverPort = 9999;
@@ -45,16 +51,17 @@ public class Controller implements Initializable {
 
     public void check() throws IOException {
         // 发送给服务器，让服务器去查询当前username有没有在数据库中
-        lock.lock();
+        // lock.lock();
         Message handshaking1 = new Message(0, this.username);
         out.writeObject(handshaking1);
         out.flush();
-        lock.unlock();
+        // lock.unlock();
     }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         // this.arrayList = new ArrayList<>();
+        searchActiveLock = new ReentrantLock();
         inLock = new ReentrantLock();
         lock = new ReentrantLock();
         Dialog<String> dialog = new TextInputDialog();
@@ -77,7 +84,7 @@ public class Controller implements Initializable {
                 System.out.println("out");
                 in = new ObjectInputStream(socket.getInputStream());
                 System.out.println(socket);
-                clientService = new ClientService(socket, username, in, out, inLock);
+                clientService = new ClientService(socket, username, in, out, searchActiveLock);
                 Thread thread = new Thread(clientService);
                 thread.start();
 
@@ -103,42 +110,22 @@ public class Controller implements Initializable {
     }
 
     public void searchHowMany() throws IOException {
-        lock.lock();
+        // lock.lock();
         Message howMany = new Message(2, "case2");
+        System.out.println("before send");
         out.writeObject(howMany);
+        System.out.println("after send");
         out.flush();
-        lock.unlock();
+        // lock.unlock();
+        System.out.println("before while");
         while (!clientService.getFlagSearchActives()) {
+            System.out.println(clientService.getFlagSearchActives());
         }
+        System.out.println("after while");
+        searchActiveLock.lock();
         clientService.setFlagSearchActives(false);
+        searchActiveLock.unlock();
     }
-
-    // public void listhandShaking1(String username) throws IOException {
-    //     lock.lock();
-    //     Message linkSetUp = new Message(4, username);
-    //     out.writeObject(linkSetUp);
-    //     out.flush();
-    //     lock.unlock();
-    // }
-
-    // public boolean linkSetUp(String username) throws IOException, InterruptedException {
-    //     if (clientService.hasLinks.contains(username)) {
-    //         System.out.println("已经和这个client建立过连接了，不需要再建立，源自linkSetUp这个方法");
-    //         return false;
-    //     } else {
-    //         // 发送handshaking1的消息给server，server要处理这个消息，并且转发给client2
-    //         listhandShaking1(username);
-    //         Thread.sleep(200);
-    //         System.out.println("link has set up");
-    //         // System.out.println("before while in linkSetup");
-    //         // while (!clientService.getFlagSetRequest()) {
-    //         // }
-    //         // clientService.setFlagSetRequest(false);
-    //         // System.out.println("after while in linkSetup");
-    //         // System.out.println("linkSetUp success");
-    //         return true;
-    //     }
-    // }
 
     @FXML
     public void createPrivateChat() throws IOException {
@@ -146,8 +133,9 @@ public class Controller implements Initializable {
 
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
-
+        System.out.println("before search");
         searchHowMany();
+        System.out.println("after search");
         List<String> actives = clientService.getActives();
         // FIXME: get the user list from server, the current user's name should be filtered out
         for (String active : actives) {
@@ -177,33 +165,9 @@ public class Controller implements Initializable {
             // 打开就好
         } else {
             clientService.hasLinks.add(selectedUser);
-            // 建立一个box
-            clientService.hasLinks.add(selectedUser);
-            // 建立一个box
-            VBox chatItem = new VBox();
-            Label titleLabel = new Label(selectedUser);
-            // .getChildren().add(titleLabel);
-            // chatItem.getStyleClass().add("chat-item");
-            chatItem.setOnMouseClicked(event -> {
-                // TODO: 点击打开聊天框
-            });
-            // leftPanel.getChildren().add(chatItem);
-
+            clientService.observableList.add(selectedUser);
+            chatList.setItems(clientService.observableList);
         }
-        // listhandShaking1(selectedUser);
-        // if (linkSetUp(selectedUser)) {
-        // //     // System.out.println("after set up");
-        // //     // Stage chatStage = new Stage();
-        // //     // VBox chatBox = new VBox(10);
-        // //     // chatBox.setPadding(new Insets(10));
-        // //     // chatBox.setAlignment(Pos.TOP_LEFT);
-        // //     //
-        // //     // TextArea chatArea = new TextArea();
-        // //     // chatArea.setEditable(false);
-        // } else {
-        // }
-
-
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     }
@@ -278,7 +242,7 @@ public class Controller implements Initializable {
     public static class ClientService implements Runnable {
         private final Socket socket;
 
-        private ReentrantLock inLock;
+        private ReentrantLock searchActiveLock;
         private ObjectInputStream in;
         private ObjectOutputStream out;
         private Integer type;
@@ -286,19 +250,15 @@ public class Controller implements Initializable {
         private Boolean flagCheckLogin;
 
         private Boolean flagSearchActives;
-        // private Boolean flagSetRequest;
-        // private Boolean flagHandshakingReceive1;
-        // private Boolean flagHandshakingReceive2;
-
         private Boolean login;
         private String username;
         private List<String> actives;
         private List<String> hasLinks;
+        ObservableList<String> observableList;
 
-        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock inLock) {
-            // ReentrantLock tmp = lock;
-            this.inLock = inLock;
-
+        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock searchActiveLock) {
+            this.searchActiveLock = searchActiveLock;
+            // this.inLock = inLock;
 
             this.socket = socket;
             this.username = username;
@@ -308,10 +268,9 @@ public class Controller implements Initializable {
             this.login = false;
             this.flagCheckLogin = false;
             this.flagSearchActives = false;
-            // this.flagSetRequest = false;
-            // this.flagHandshakingReceive1 = false;
-            // this.flagHandshakingReceive2 = false;
             this.hasLinks = new ArrayList<>();
+            this.observableList = FXCollections.observableArrayList(hasLinks);
+
         }
 
         @Override
@@ -329,11 +288,11 @@ public class Controller implements Initializable {
 
         public void doClientService() throws IOException, ClassNotFoundException {
             while (true) {
-                inLock.lock();
-                System.out.println("before in");
+                // inLock.lock();
+                // System.out.println("before in");
                 Object obj = in.readObject();
-                System.out.println("after in");
-                inLock.unlock();
+                // System.out.println("after in");
+                // inLock.unlock();
                 if (obj == null) continue;
                 Message message = (Message) obj;
                 int type = message.getType();
@@ -374,8 +333,14 @@ public class Controller implements Initializable {
         }
 
         public void getHowManyActives(Message message) {
+            System.out.println(flagSearchActives);
+            System.out.println("before set flag");
+            searchActiveLock.lock();
             this.setActives(message.getActives());
             this.setFlagSearchActives(true);
+            System.out.println("after flag");
+            System.out.println(flagSearchActives);
+            searchActiveLock.unlock();
         }
 
         public void addLinks(Message message) {
