@@ -2,8 +2,6 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
-import javafx.beans.value.ObservableValue;
-import javafx.beans.value.ObservableValueBase;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -21,10 +19,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public class Controller implements Initializable {
 
@@ -40,38 +38,39 @@ public class Controller implements Initializable {
     @FXML
     ListView<Message> chatContentList;
 
+    @FXML
+    TextArea inputArea;
+
     private List<String> selectedUsers;
 
-    private ReentrantLock searchActiveLock;
-    private ReentrantLock lockForSelect;
-    private ReentrantLock inLock;
+    // private ReentrantLock searchActiveLock;
+    // private ReentrantLock lockForSelect;
+    // private ReentrantLock inLock;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
     private Socket socket;
     private String username;
-    private String speakTo;
+    private String sendTo;
     private ClientService clientService;
 
     private List<String> actives;
 
+
     public void check() throws IOException {
         // 发送给服务器，让服务器去查询当前username有没有在数据库中
-        // lock.lock();
-        Message handshaking1 = new Message(0, this.username);
-        out.writeObject(handshaking1);
+        Message check = new Message(0, this.username);
+        out.writeObject(check);
         out.flush();
-        // lock.unlock();
     }
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        // this.arrayList = new ArrayList<>();
         this.actives = new ArrayList<>();
         selectedUsers = new ArrayList<>();
-        searchActiveLock = new ReentrantLock();
-        // inLock = new ReentrantLock();
-        lockForSelect = new ReentrantLock();
+        // searchActiveLock = new ReentrantLock();
+        // lockForSelect = new ReentrantLock();
+
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -92,20 +91,22 @@ public class Controller implements Initializable {
                 System.out.println("out");
                 in = new ObjectInputStream(socket.getInputStream());
                 System.out.println(socket);
-                clientService = new ClientService(socket, username, in, out, searchActiveLock);
+                clientService = new ClientService(socket, username, in, out, new ReentrantLock(), this);
                 Thread thread = new Thread(clientService);
                 thread.start();
-
                 // handshaking1
                 check();
                 while (clientService.getFlagCheckLogin() == null) {
 
                 }
-//                 // login没成功，走这里,要弹出警告
+                // login没成功，走这里,要弹出警告
                 if (!clientService.getLogin()) {
-// // 弹出警告
+                    // 弹出警告
                 }
                 currentUsername.setText("Current User: " + username);
+                // 成功上线，要发一个message
+                loginSuccess();
+
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -119,35 +120,48 @@ public class Controller implements Initializable {
                 .selectedItemProperty()
                 .addListener((o, oldValue, newValue) -> {
                             // 捕获到了，就要把右边的改过去
-                            speakTo = newValue;
+                            sendTo = newValue;
                             // 查询已经向他发送的信息，把那个list传入就行。
-                            // this.chatContentList.setItems();
+                            List<Message> messageList = this.clientService.messageList.stream().filter(e -> e.getSendTo().equals(sendTo)
+                                    || e.getSentBy().equals(username)).collect(Collectors.toList());
+                            for (Message message : messageList) {
+                                System.out.println(message);
+                            }
+                            ObservableList<Message> messageObservableList = FXCollections.observableArrayList(messageList);
+                            // 设置好聊天窗口
+                            this.chatContentList.setItems(messageObservableList);
                         }
                 );
 
 
         chatContentList.setCellFactory(new MessageCellFactory());
-
+        System.out.println("initialization finish");
 
     }
 
-    public void searchHowMany() throws IOException {
-        Message howMany = new Message(2, "case2");
-        System.out.println("before send");
-        out.writeObject(howMany);
-        System.out.println("after send");
+    public void loginSuccess() throws IOException {
+        Message loginMessage = new Message(2, username);
+        out.writeObject(loginMessage);
         out.flush();
-        System.out.println("before while");
-        lockForSelect.lock();
-        while (!clientService.getFlagSearchActives()) {
-            System.out.println(clientService.getFlagSearchActives());
-        }
-        lockForSelect.unlock();
-        System.out.println("after while");
-        searchActiveLock.lock();
-        clientService.setFlagSearchActives(false);
-        searchActiveLock.unlock();
     }
+
+    // public void searchHowMany() throws IOException {
+    //     Message howMany = new Message(2, "case2");
+    //     System.out.println("before send");
+    //     out.writeObject(howMany);
+    //     System.out.println("after send");
+    //     out.flush();
+    //     System.out.println("before while");
+    //     lockForSelect.lock();
+    //     while (!clientService.getFlagSearchActives()) {
+    //         System.out.println(clientService.getFlagSearchActives());
+    //     }
+    //     lockForSelect.unlock();
+    //     System.out.println("after while");
+    //     searchActiveLock.lock();
+    //     clientService.setFlagSearchActives(false);
+    //     searchActiveLock.unlock();
+    // }
 
     @FXML
     public void createPrivateChat() throws IOException {
@@ -155,16 +169,15 @@ public class Controller implements Initializable {
 
         Stage stage = new Stage();
         ComboBox<String> userSel = new ComboBox<>();
-        System.out.println("before search");
-        searchHowMany();
-        System.out.println("after search");
-        List<String> actives = clientService.getActives();
+        // System.out.println("before search");
+        // searchHowMany();
+        // System.out.println("after search");
+        // List<String> actives = clientService.getActives();
         // FIXME: get the user list from server, the current user's name should be filtered out
         for (String active : actives) {
             userSel.getItems().add(active);
         }
-        this.currentOnlineCnt.setText(String.valueOf(actives.size()));
-
+        // this.currentOnlineCnt.setText(String.valueOf(actives.size()));
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
             user.set(userSel.getSelectionModel().getSelectedItem());
@@ -217,8 +230,15 @@ public class Controller implements Initializable {
      * After sending the message, you should clear the text input field.
      */
     @FXML
-    public void doSendMessage() {
+    public void doSendMessage() throws IOException {
         // TODO
+        String data = inputArea.getText();
+        Long nowTime = System.currentTimeMillis();
+        Message sendMessage = new Message(nowTime, username, sendTo, data, 4);
+        out.writeObject(sendMessage);
+        out.flush();
+
+        inputArea.clear();
 
         // ObservableList<Message> observableList = FXCollections.observableArrayList();
         // Long nowTime = System.currentTimeMillis();
@@ -265,6 +285,14 @@ public class Controller implements Initializable {
                 }
             };
         }
+    }
+
+    public List<String> getActives() {
+        return actives;
+    }
+
+    public void setActives(List<String> actives) {
+        this.actives = actives;
     }
 
 
@@ -417,5 +445,159 @@ public class Controller implements Initializable {
     //
     // }
 
+
+    public class ClientService implements Runnable {
+        private final Socket socket;
+
+        private Controller controller;
+        // private ReentrantLock searchActiveLock;
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+        private Integer type;
+
+        private Boolean flagCheckLogin;
+
+        private Boolean flagSearchActives;
+        private Boolean login;
+        private String username;
+        private List<String> actives;
+        private List<Message> messageList;
+        List<String> hasLinks;
+        ObservableList<String> observableList;
+
+
+        public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock searchActiveLock, Controller controller) {
+            this.controller = controller;
+            // this.searchActiveLock = searchActiveLock;
+            this.socket = socket;
+            this.username = username;
+            this.in = in;
+            this.out = out;
+            this.actives = new ArrayList<>();
+            this.login = false;
+            this.flagCheckLogin = false;
+            this.flagSearchActives = false;
+            this.hasLinks = new ArrayList<>();
+            this.observableList = FXCollections.observableArrayList(hasLinks);
+            this.messageList = new ArrayList<>();
+        }
+
+        @Override
+        public void run() {
+            try {
+                try {
+                    doClientService();
+                } finally {
+                    socket.close();
+                }
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void doClientService() throws IOException, ClassNotFoundException {
+            while (true) {
+                Object obj = in.readObject();
+                if (obj == null) continue;
+                Message message = (Message) obj;
+                int type = message.getType();
+                switch (type) {
+                    case 1: {
+                        System.out.println("client case 1");
+                        whetherLogin(message);
+                        this.flagCheckLogin = true;
+                        break;
+                    }
+                    case 3: {
+                        System.out.println("client case 3");
+                        // 获取到了目前有多少人在线
+                        getHowManyActives(message);
+                        // List<String> list = message.getActives();
+                        // Platform.runLater(()-> = list);
+                        break;
+                    }
+                    case 5: {
+                        System.out.println("client case 5");
+                        saveMessage(message);
+                        // addLinks(message);
+                        break;
+                    }
+                    // case 7: {
+                    //     System.out.println("client case 7");
+                    //     handShaking2(message);
+                    //     break;
+                    // }
+                }
+            }
+        }
+
+        public void whetherLogin(Message message) {
+            if (message.getData().equals("success")) {
+                this.login = true;
+            } else {
+                this.login = false;
+                System.out.println("你的账号已在其他地方登录或密码错误");
+            }
+        }
+
+        public void getHowManyActives(Message message) {
+            this.actives.add(message.getData());
+            // this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size()));
+            Platform.runLater(() -> {
+                controller.setActives(this.actives);
+                System.out.println("platform");
+                // currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
+            });
+        }
+
+        public void saveMessage(Message message) {
+            this.messageList.add(message);
+            ObservableList<Message> observableList = FXCollections.observableArrayList(this.messageList);
+            Platform.runLater(() -> {
+                controller.chatContentList.setItems(observableList);
+            });
+        }
+
+        public Boolean getFlagSearchActives() {
+            return flagSearchActives;
+        }
+
+        public void setFlagSearchActives(Boolean flagSearchActives) {
+            this.flagSearchActives = flagSearchActives;
+        }
+
+        public Integer getType() {
+            return type;
+        }
+
+        public void setType(Integer type) {
+            this.type = type;
+        }
+
+        public List<String> getActives() {
+            return actives;
+        }
+
+        public void setActives(List<String> actives) {
+            this.actives = actives;
+        }
+
+        public Boolean getLogin() {
+            return login;
+        }
+
+        public void setLogin(Boolean login) {
+            this.login = login;
+        }
+
+        public Boolean getFlagCheckLogin() {
+            return flagCheckLogin;
+        }
+
+        public void setFlagCheckLogin(Boolean flagCheckLogin) {
+            this.flagCheckLogin = flagCheckLogin;
+        }
+
+    }
 
 }

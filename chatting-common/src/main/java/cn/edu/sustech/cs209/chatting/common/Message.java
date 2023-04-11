@@ -14,13 +14,16 @@ public class Message implements Serializable {
 
     private String sendTo;
 
-    private List<String> actives = new ArrayList<>();
+    // private List<String> actives = new ArrayList<>();
     private String data;
 
     // 0为client向server询问是否可以登录
     // 1为server回给client是否可以登录
-    // 2为client向server询问当前在线的用户分别是谁。
-    // 3为server向client告知现在在线的有多少,以list形式返回，list里面装的是client的username。
+
+    // 2为client向server告知自己上线了
+    // 3为server向其余所有client告知有一个client上线了
+    // 4为client1向client2发送的消息，需要经过server转发
+    // 5为server转发给client2的type
     /**
      * 4到7不要
      */
@@ -44,10 +47,10 @@ public class Message implements Serializable {
         this.data = data;
     }
 
-    public Message(int type, List<String> actives) {
-        this.actives = actives;
-        this.type = type;
-    }
+    // public Message(int type, List<String> actives) {
+        // this.actives = actives;
+        // this.type = type;
+    // }
 
     public Message(String sentBy, String sendTo, int type) {
         this.sentBy = sentBy;
@@ -55,11 +58,12 @@ public class Message implements Serializable {
         this.type = type;
     }
 
-    public Message(Long timestamp, String sentBy, String sendTo, String data) {
+    public Message(Long timestamp, String sentBy, String sendTo, String data,int type) {
         this.timestamp = timestamp;
         this.sentBy = sentBy;
         this.sendTo = sendTo;
         this.data = data;
+        this.type = type;
     }
 
     public void setTimestamp(Long timestamp) {
@@ -102,11 +106,11 @@ public class Message implements Serializable {
         return data;
     }
 
-    public List<String> getActives() {
-        return actives;
-    }
-
-    public void setActives(List<String> actives) {
-        this.actives = actives;
-    }
+    // public List<String> getActives() {
+    //     return actives;
+    // }
+    //
+    // public void setActives(List<String> actives) {
+    //     this.actives = actives;
+    // }
 }

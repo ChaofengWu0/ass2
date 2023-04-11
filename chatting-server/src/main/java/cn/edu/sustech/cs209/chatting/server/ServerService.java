@@ -61,7 +61,7 @@ public class ServerService implements Runnable {
         }
     }
 
-    public synchronized void doService() throws IOException, ClassNotFoundException, SQLException {
+    public void doService() throws IOException, ClassNotFoundException, SQLException {
         while (true) {
             // inLock.lock();
             System.out.println("doService before in");
@@ -81,7 +81,8 @@ public class ServerService implements Runnable {
                 }
                 case 2: {
                     System.out.println("server case 2");
-                    searchHowManyActive();
+                    tellAllClients(message);
+                    // searchHowManyActive();
                     break;
                 }
                 case 4: {
@@ -159,46 +160,69 @@ public class ServerService implements Runnable {
         }
     }
 
-    public void searchHowManyActive() throws SQLException, IOException {
-        List<String> actives = new ArrayList<>();
-        PreparedStatement searchHowMany;
-        String searchHowManySQL = "select * from user where status is not null and status = ?";
-        searchHowMany = connection.prepareStatement(searchHowManySQL);
-        searchHowMany.setInt(1, 0);
-        ResultSet rs = searchHowMany.executeQuery();
-        while (rs.next()) {
-            actives.add(rs.getString(1));
-        }
-        Message howManyActiveResponse = new Message(3, actives);
-        // outLock.lock();
-        out.writeObject(howManyActiveResponse);
-        out.flush();
-        // outLock.unlock();
+    public void tellAllClients(Message message) {
+        String userName = message.getData();
+        // 和所有人说，userName上线了
+        // lock.lock();
+        hashMap.forEach((key, value) -> {
+            if (!key.equals(userName)) {
+                System.out.println(key);
+                Message notification = new Message(3, userName);
+                try {
+                    value.out.writeObject(notification);
+                    value.out.flush();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        // lock.unlock();
+        // 告诉userName，哪些人在线
+        // lock.lock();
+        hashMap.forEach((key, value) -> {
+            if (!key.equals(userName)) {
+                System.out.println(key);
+                Message notification = new Message(3, key);
+                try {
+                    hashMap.get(userName).out.writeObject(notification);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        // lock.unlock();
+
+
     }
 
+    // public void searchHowManyActive() throws SQLException, IOException {
+    //     List<String> actives = new ArrayList<>();
+    //     PreparedStatement searchHowMany;
+    //     String searchHowManySQL = "select * from user where status is not null and status = ?";
+    //     searchHowMany = connection.prepareStatement(searchHowManySQL);
+    //     searchHowMany.setInt(1, 0);
+    //     ResultSet rs = searchHowMany.executeQuery();
+    //     while (rs.next()) {
+    //         actives.add(rs.getString(1));
+    //     }
+    //     Message howManyActiveResponse = new Message(3, actives);
+    //     // outLock.lock();
+    //     out.writeObject(howManyActiveResponse);
+    //     out.flush();
+    //     // outLock.unlock();
+    // }
+
     public void establishLink1(Message message) {
-        String username = message.getData();
-        // lock.lock();
-        ServerService sendTo = hashMap.get(username);
-        // lock.unlock();
+        String sendToUsername = message.getSendTo();
+        ServerService sendTo = hashMap.get(sendToUsername);
         System.out.println(sendTo);
         try {
-
-            // ObjectOutputStream objectOutputStream = new ObjectOutputStream(sendTo.getOutputStream());
             System.out.println("before message5");
-            // Message establishMsg = new Message(5, String.valueOf(client.getPort()));
-            Message establishMsg = new Message(5, username);
-            System.out.println(client.getPort());
-
-            // outLock.lock();
-            // System.out.println(objectOutputStream);
-            sendTo.out.writeObject(establishMsg);
+            message.setType(5);
+            sendTo.out.writeObject(message);
             sendTo.out.flush();
-            // outLock.unlock();
-
-            System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + username);
+            System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + sendToUsername);
             System.out.println("finish send request");
-            // objectOutputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
