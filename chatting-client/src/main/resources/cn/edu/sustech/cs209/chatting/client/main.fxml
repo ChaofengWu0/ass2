@@ -59,6 +59,6 @@
             </textFill>
         </Label>
         <Pane HBox.hgrow="ALWAYS"/>
-        <Label fx:id="currentOnlineCnt"  font="$x3" textFill="$x4" HBox.hgrow="NEVER"/>
+        <Label fx:id="currentOnlineCnt" text="1" font="$x3" textFill="$x4" HBox.hgrow="NEVER"/>
     </HBox>
 </VBox>

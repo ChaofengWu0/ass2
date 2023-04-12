@@ -99,7 +99,7 @@ public class ServerService implements Runnable {
         }
     }
 
-    public void searchWhetherRunnable(String username) {
+    public synchronized void searchWhetherRunnable(String username) {
         try {
             PreparedStatement selectWhetherExist;
             PreparedStatement selectStatus;
@@ -195,34 +195,16 @@ public class ServerService implements Runnable {
 
     }
 
-    // public void searchHowManyActive() throws SQLException, IOException {
-    //     List<String> actives = new ArrayList<>();
-    //     PreparedStatement searchHowMany;
-    //     String searchHowManySQL = "select * from user where status is not null and status = ?";
-    //     searchHowMany = connection.prepareStatement(searchHowManySQL);
-    //     searchHowMany.setInt(1, 0);
-    //     ResultSet rs = searchHowMany.executeQuery();
-    //     while (rs.next()) {
-    //         actives.add(rs.getString(1));
-    //     }
-    //     Message howManyActiveResponse = new Message(3, actives);
-    //     // outLock.lock();
-    //     out.writeObject(howManyActiveResponse);
-    //     out.flush();
-    //     // outLock.unlock();
-    // }
-
-    public void establishLink1(Message message) {
+    public synchronized void establishLink1(Message message) {
         String sendToUsername = message.getSendTo();
         ServerService sendTo = hashMap.get(sendToUsername);
         System.out.println(sendTo);
         try {
-            System.out.println("before message5");
             message.setType(5);
             sendTo.out.writeObject(message);
             sendTo.out.flush();
             System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + sendToUsername);
-            System.out.println("finish send request");
+            System.out.println("The msg is " + message.getData());
         } catch (IOException e) {
             e.printStackTrace();
         }
