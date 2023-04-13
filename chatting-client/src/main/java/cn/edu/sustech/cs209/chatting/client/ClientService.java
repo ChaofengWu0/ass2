@@ -30,13 +30,14 @@ public class ClientService implements Runnable {
     private String username;
     private String selectedUsr;
 
-    private List<String> actives;
+    private List<Controller.ChatObj> actives;
     List<Message> messageList;
-    List<String> chatList;
-    List<String> hasLinks;
+    List<Controller.ChatObj> chatList;
+    // List<String> hasLinks;
+    ObservableList<Controller.ChatObj> observableList_chatListPrivate_chatObj;
+    ObservableList<Controller.ChatObj> observableList_chatListGroup;
     ObservableList<String> observableList_chatListPrivate;
-    ObservableList<String> observableList_chatListGroup;
-    ObservableList<String> observableList_chatListGroup_show;
+    ObservableList<Controller.ChatObj> observableList_chatListGroup_show;
 
 
     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
@@ -49,10 +50,11 @@ public class ClientService implements Runnable {
         this.actives = new ArrayList<>();
         this.login = false;
         this.flagSearchActives = false;
-        this.hasLinks = new ArrayList<>();
-        this.observableList_chatListPrivate = FXCollections.observableArrayList(hasLinks);
+        // this.hasLinks = new ArrayList<>();
+        this.observableList_chatListPrivate_chatObj = FXCollections.observableArrayList();
         this.observableList_chatListGroup = FXCollections.observableArrayList();
         this.observableList_chatListGroup_show = FXCollections.observableArrayList();
+        this.observableList_chatListPrivate = FXCollections.observableArrayList();
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
         this.selectedUsr = sendTo;
@@ -120,7 +122,7 @@ public class ClientService implements Runnable {
     }
 
     public void getHowManyActives(Message message) {
-        this.actives.add(message.getData());
+        this.actives.add(new Controller.ChatObj(message.getData(), message.getData()));
         Platform.runLater(() -> {
             this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
             controller.setActives(this.actives);
@@ -131,8 +133,9 @@ public class ClientService implements Runnable {
         this.messageList.add(message);
         if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
             Platform.runLater(() -> {
+                this.observableList_chatListPrivate_chatObj.add(new Controller.ChatObj(message.getSentBy(), message.getSentBy()));
                 this.observableList_chatListPrivate.add(message.getSentBy());
-                controller.chatList.setItems(observableList_chatListPrivate);
+                controller.chatList.setItems(observableList_chatListPrivate_chatObj);
             });
             serviceShowMsg(message);
         } else {
@@ -173,11 +176,11 @@ public class ClientService implements Runnable {
         this.type = type;
     }
 
-    public List<String> getActives() {
+    public List<Controller.ChatObj> getActives() {
         return actives;
     }
 
-    public void setActives(List<String> actives) {
+    public void setActives(List<Controller.ChatObj> actives) {
         this.actives = actives;
     }
 
@@ -205,11 +208,36 @@ public class ClientService implements Runnable {
         this.selectedUsr = selectedUsr;
     }
 
-    public ObservableList<String> getObservableList_chatListGroup() {
+    public ObservableList<Controller.ChatObj> getObservableList_chatListPrivate_chatObj() {
+        return observableList_chatListPrivate_chatObj;
+    }
+
+    public void setObservableList_chatListPrivate_chatObj(ObservableList<Controller.ChatObj> observableList_chatListPrivate_chatObj) {
+        this.observableList_chatListPrivate_chatObj = observableList_chatListPrivate_chatObj;
+    }
+
+    public ObservableList<Controller.ChatObj> getObservableList_chatListGroup() {
         return observableList_chatListGroup;
     }
 
-    public void setObservableList_chatListGroup(ObservableList<String> observableList_chatListGroup) {
+    public void setObservableList_chatListGroup(ObservableList<Controller.ChatObj> observableList_chatListGroup) {
         this.observableList_chatListGroup = observableList_chatListGroup;
     }
+
+    public ObservableList<Controller.ChatObj> getObservableList_chatListGroup_show() {
+        return observableList_chatListGroup_show;
+    }
+
+    public void setObservableList_chatListGroup_show(ObservableList<Controller.ChatObj> observableList_chatListGroup_show) {
+        this.observableList_chatListGroup_show = observableList_chatListGroup_show;
+    }
+
+
+    // public ObservableList<String> getObservableList_chatListGroup() {
+    //     return observableList_chatListGroup;
+    // }
+    //
+    // public void setObservableList_chatListGroup(ObservableList<String> observableList_chatListGroup) {
+    //     this.observableList_chatListGroup = observableList_chatListGroup;
+    // }
 }

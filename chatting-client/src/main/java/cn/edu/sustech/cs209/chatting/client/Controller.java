@@ -2,6 +2,7 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -32,7 +33,7 @@ public class Controller implements Initializable {
     Label currentOnlineCnt;
 
     @FXML
-    ListView<String> chatList;
+    ListView<ChatObj> chatList;
 
     @FXML
     ListView<Message> chatContentList;
@@ -52,7 +53,7 @@ public class Controller implements Initializable {
     private ClientService clientService;
 
     // private ObservableList<String> chatArrayList;
-    private List<String> actives;
+    private List<ChatObj> actives;
 
 
     public void check() throws IOException {
@@ -128,14 +129,15 @@ public class Controller implements Initializable {
 
         chatList.getSelectionModel()
                 .selectedItemProperty()
-                .addListener((o, oldValue, newValue) -> {
+                .addListener((ObservableValue<? extends ChatObj> observable, ChatObj oldValue, ChatObj newValue) -> {
                             // 捕获到了，就要把右边的改过去
-                            sendTo = newValue;
+                            sendTo = newValue.actualData;
                             this.clientService.setSelectedUsr(sendTo);
                             System.out.println("now sendTo: " + sendTo);
                             showMsg();
                         }
                 );
+        chatList.setCellFactory(new ChatListCellFactory());
         chatContentList.setCellFactory(new MessageCellFactory());
     }
 
@@ -147,12 +149,13 @@ public class Controller implements Initializable {
 
     @FXML
     public void createPrivateChat() {
-        AtomicReference<String> user = new AtomicReference<>();
+        AtomicReference<ChatObj> user = new AtomicReference<>();
 
         Stage stage = new Stage();
-        ComboBox<String> userSel = new ComboBox<>();
+        ComboBox<ChatObj> userSel = new ComboBox<>();
+        userSel.setCellFactory(new ComboBoxCellFactory());
         // FIXME: get the user list from server, the current user's name should be filtered out
-        for (String active : actives) {
+        for (ChatObj active : actives) {
             userSel.getItems().add(active);
         }
         Button okBtn = new Button("OK");
@@ -171,13 +174,14 @@ public class Controller implements Initializable {
         stage.showAndWait();
 
         // 选了用户并且点了ok之后.
-        String selectedUser = user.get();
+        ChatObj selectedUser = user.get();
         if (selectedUser == null) return;
-        if (clientService.observableList_chatListPrivate.contains(selectedUser)) {
+        if (clientService.observableList_chatListPrivate_chatObj.contains(selectedUser)) {
             chatList.getSelectionModel().select(selectedUser);
+            chatList.setCellFactory(new ChatListCellFactory());
             System.out.println("Already has this link");
         } else {
-            clientService.observableList_chatListPrivate.add(selectedUser);
+            clientService.observableList_chatListPrivate_chatObj.add(selectedUser);
             showChatList();
         }
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
@@ -185,12 +189,13 @@ public class Controller implements Initializable {
     }
 
     public void showChatList() {
-        ObservableList<String> privateList = clientService.observableList_chatListPrivate;
-        ObservableList<String> groupList = clientService.observableList_chatListGroup_show;
-        ObservableList<String> allList = FXCollections.observableArrayList();
+        ObservableList<ChatObj> privateList = clientService.observableList_chatListPrivate_chatObj;
+        ObservableList<ChatObj> groupList = clientService.observableList_chatListGroup_show;
+        ObservableList<ChatObj> allList = FXCollections.observableArrayList();
         if (privateList != null) allList.addAll(privateList);
         if (groupList != null) allList.addAll(groupList);
         chatList.setItems(allList);
+        chatList.setCellFactory(new ChatListCellFactory());
     }
 
 
@@ -223,64 +228,63 @@ public class Controller implements Initializable {
 
     @FXML
     public void createGroupChat() {
-        Stage stage = new Stage();
-
-        ComboBox<CheckBox> userSel = new ComboBox<>();
-        ArrayList<CheckBox> userSelArr = new ArrayList<>();
-        for (String active : actives) {
-            userSelArr.add(new CheckBox(active));
-        }
-
-        if (userSelArr.size() < 2) {
-            alertActivesNotEnough();
-            stage.close();
-            return;
-        }
-
-        userSel.setItems(FXCollections.observableList(userSelArr));
-        List<String> selectedOptions = new ArrayList<>();
-        Button okBtn = new Button("OK");
-        okBtn.setOnAction(e -> {
-            for (CheckBox checkBox : userSel.getItems()) {
-                if (checkBox.isSelected()) {
-                    selectedOptions.add(checkBox.getText());
-                }
-            }
-            System.out.println("Selected options: " + selectedOptions);
-            stage.close();
-        });
-
-        HBox box = new HBox(200);
-        box.setAlignment(Pos.CENTER);
-        box.setPadding(new Insets(30, 30, 30, 30));
-        box.getChildren().addAll(userSelArr);
-        box.getChildren().addAll(okBtn);
-        stage.setScene(new Scene(box));
-        stage.showAndWait();
-
-        // 选了用户并且点了ok之后.
-        if (selectedOptions.size() < 2) {
-            alertSelectedNotEnough();
-            return;
-        }
-        // 排序
-        selectedOptions.add(username);
-        Collections.sort(selectedOptions);
-        this.selectedUserListGlobal = selectedOptions;
-
-        String selectedOptionsToString = changeIntoString(selectedOptions);
-        String selectedOptionsToString_show = changeIntoShow(selectedOptions);
-
-        if (this.clientService.observableList_chatListGroup.contains(selectedOptionsToString)) {
-            // 怎么打开这个对话框.
-            chatList.getSelectionModel().select(selectedOptionsToString_show);
-            System.out.println("Already has this link!");
-        } else {
-            changeIntoString(selectedOptions);
-            this.clientService.observableList_chatListGroup.add(selectedOptionsToString);
-            clientService.observableList_chatListGroup_show.add(selectedOptionsToString_show);
-            showChatList();
-        }
+        //     Stage stage = new Stage();
+        //
+        //     ComboBox<ChatObj> userSel = new ComboBox<>();
+        //     ArrayList<CheckBox> userSelArr = new ArrayList<>();
+        //     for (ChatObj active : actives) {
+        //         userSelArr.add(new CheckBox(active.actualData));
+        //     }
+        //
+        //     if (userSelArr.size() < 2) {
+        //         alertActivesNotEnough();
+        //         stage.close();
+        //         return;
+        //     }
+        //
+        //     userSel.setItems(FXCollections.observableList(userSelArr));
+        //     List<String> selectedOptions = new ArrayList<>();
+        //     Button okBtn = new Button("OK");
+        //     okBtn.setOnAction(e -> {
+        //         for (CheckBox checkBox : userSel.getItems()) {
+        //             if (checkBox.isSelected()) {
+        //                 selectedOptions.add(checkBox.getText());
+        //             }
+        //         }
+        //         System.out.println("Selected options: " + selectedOptions);
+        //         stage.close();
+        //     });
+        //
+        //     HBox box = new HBox(200);
+        //     box.setAlignment(Pos.CENTER);
+        //     box.setPadding(new Insets(30, 30, 30, 30));
+        //     box.getChildren().addAll(userSelArr);
+        //     box.getChildren().addAll(okBtn);
+        //     stage.setScene(new Scene(box));
+        //     stage.showAndWait();
+        //
+        //     // 选了用户并且点了ok之后.
+        //     if (selectedOptions.size() < 2) {
+        //         alertSelectedNotEnough();
+        //         return;
+        //     }
+        //     // 排序
+        //     selectedOptions.add(username);
+        //     Collections.sort(selectedOptions);
+        //     this.selectedUserListGlobal = selectedOptions;
+        //     String selectedOptionsToString = changeIntoString(selectedOptions);
+        //     String selectedOptionsToString_show = changeIntoShow(selectedOptions);
+        //     if (this.clientService.observableList_chatListGroup.contains(selectedOptionsToString)) {
+        //         // 怎么打开这个对话框.
+        //         chatList.getSelectionModel().select(selectedOptionsToString_show);
+        //         System.out.println("Already has this link!");
+        //     } else {
+        //         changeIntoString(selectedOptions);
+        //         this.clientService.observableList_chatListGroup.add(selectedOptionsToString);
+        //         clientService.observableList_chatListGroup_show.add(selectedOptionsToString_show);
+        //         // chatList.getSelectionModel().select(selectedOptionsToString_show);
+        //         showChatList();
+        //     }
     }
 
     public String changeIntoString(List<String> selectedOptions) {
@@ -321,14 +325,25 @@ public class Controller implements Initializable {
             System.out.println("空格");
             return;
         }
+        /**
+         * 上面的是对输入的内容进行检查
+         */
+
+
+        System.out.println("in showChatList, and for now the one selected is " + chatList.getSelectionModel().getSelectedItem());
+        // String selectedItem = chatList.getSelectionModel().getSelectedItem();
+        ChatObj selectedItem = chatList.getSelectionModel().getSelectedItem();
+
 
         Long nowTime = System.currentTimeMillis();
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
-        System.out.println(username + " 现在有 " + this.clientService.messageList.size() + "条消息");
         out.writeObject(sendPrivateMessage);
         out.flush();
-        // Thread.sleep(10);
+
+        // this.chatList.getSelectionModel();
+
+
         showMsg();
         this.chatContentList.setCellFactory(new MessageCellFactory());
         inputArea.clear();
@@ -389,11 +404,81 @@ public class Controller implements Initializable {
         }
     }
 
-    public List<String> getActives() {
+    private class ChatListCellFactory implements Callback<ListView<ChatObj>, ListCell<ChatObj>> {
+        @Override
+        public ListCell<ChatObj> call(ListView<ChatObj> param) {
+            return new ListCell<ChatObj>() {
+                @Override
+                protected void updateItem(ChatObj item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item.getChatListShow());
+                    }
+                }
+            };
+        }
+    }
+
+    private class ComboBoxCellFactory implements Callback<ListView<ChatObj>, ListCell<ChatObj>> {
+        @Override
+        public ListCell<ChatObj> call(ListView<ChatObj> param) {
+            return new ListCell<ChatObj>() {
+                @Override
+                protected void updateItem(ChatObj item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item.getChatListShow());
+                    }
+                }
+            };
+        }
+    }
+
+    public List<ChatObj> getActives() {
         return actives;
     }
 
-    public void setActives(List<String> actives) {
+    public void setActives(List<ChatObj> actives) {
         this.actives = actives;
     }
+
+    public static class ChatObj {
+        String chatListShow;
+        String actualData;
+
+        public ChatObj(String chatListShow) {
+            this.chatListShow = chatListShow;
+        }
+
+        public ChatObj(String chatListShow, String actualData) {
+            this.chatListShow = chatListShow;
+            this.actualData = actualData;
+        }
+
+        public String getChatListShow() {
+            return chatListShow;
+        }
+
+        public void setChatListShow(String chatListShow) {
+            this.chatListShow = chatListShow;
+        }
+
+        public String getActualData() {
+            return actualData;
+        }
+
+        public void setActualData(String actualData) {
+            this.actualData = actualData;
+        }
+
+        @Override
+        public String toString() {
+            return actualData;
+        }
+    }
+
 }
