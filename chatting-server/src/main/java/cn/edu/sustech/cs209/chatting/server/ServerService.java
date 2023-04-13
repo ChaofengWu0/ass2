@@ -215,12 +215,41 @@ public class ServerService implements Runnable {
             }
         });
         // lock.unlock();
-
-
     }
 
     public synchronized void establishLink1(Message message) {
         String sendToUsername = message.getSendTo();
+        // 处理多个人的情况
+        String[] sendToUsrArr = sendToUsername.split(",");
+        if (sendToUsrArr.length > 1) {
+            for (int i = 0; i < sendToUsrArr.length; i++) {
+                sendToUsrArr[i] = sendToUsrArr[i].trim();
+            }
+        } else {
+            sendMsgPrivate(message, sendToUsername);
+            return;
+        }
+
+        // 给每个人都发一遍消息
+        for (String s : sendToUsrArr) {
+            if (s.equals(message.getSentBy())) continue;
+            sendToUsername = s;
+            ServerService sendTo = hashMap.get(sendToUsername);
+            System.out.println(sendTo);
+            try {
+                message.setType(5);
+                sendTo.out.writeObject(message);
+                sendTo.out.flush();
+                System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + sendToUsername);
+                System.out.println("The msg is " + message.getData());
+                System.out.println("The msg if for group " + message.getSendTo());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void sendMsgPrivate(Message message, String sendToUsername) {
         ServerService sendTo = hashMap.get(sendToUsername);
         System.out.println(sendTo);
         try {

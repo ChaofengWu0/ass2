@@ -41,7 +41,6 @@ public class Controller implements Initializable {
     @FXML
     TextArea inputArea;
 
-    private List<ChatObj> selectedUserListGlobal;
     // private String selectedUserListGlobal_toString;
     // private String selectedUserListGlobal_toString_show;
     final int serverPort = 9999;
@@ -66,7 +65,6 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         this.actives = new ArrayList<>();
-        this.selectedUserListGlobal = new ArrayList<>();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -116,9 +114,7 @@ public class Controller implements Initializable {
                 // 成功上线，要发一个message
                 loginSuccess();
 
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (InterruptedException e) {
+            } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
             System.out.println("username: " + username);
@@ -131,7 +127,9 @@ public class Controller implements Initializable {
                 .selectedItemProperty()
                 .addListener((ObservableValue<? extends ChatObj> observable, ChatObj oldValue, ChatObj newValue) -> {
                             // 捕获到了，就要把右边的改过去
-                            sendTo = newValue.actualData;
+                            if (newValue != null) {
+                                sendTo = newValue.actualData;
+                            }
                             this.clientService.setSelectedUsr(sendTo);
                             System.out.println("now sendTo: " + sendTo);
                             showMsg();
@@ -179,6 +177,7 @@ public class Controller implements Initializable {
         if (clientService.observableList_chatListPrivate_chatObj.contains(selectedUser)) {
             chatList.getSelectionModel().select(selectedUser);
             chatList.setCellFactory(new ChatListCellFactory());
+            chatContentList.setCellFactory(new MessageCellFactory());
             System.out.println("Already has this link");
         } else {
             clientService.observableList_chatListPrivate_chatObj.add(selectedUser);
@@ -196,6 +195,7 @@ public class Controller implements Initializable {
         if (groupList != null) allList.addAll(groupList);
         chatList.setItems(allList);
         chatList.setCellFactory(new ChatListCellFactory());
+        chatContentList.setCellFactory(new MessageCellFactory());
     }
 
 
@@ -277,12 +277,14 @@ public class Controller implements Initializable {
         String selectedOptionsToString_show = changeIntoShow(selectedOptions);
         if (this.clientService.observableList_chatListGroup_show_StringList.contains(selectedOptionsToString)) {
             // 怎么打开这个对话框.
-            this.clientService.observableList_chatListGroup_show_StringList.add(selectedOptionsToString);
             ChatObj nowObj = this.clientService.observableList_chatListGroup_hashmap.get(selectedOptionsToString);
             chatList.getSelectionModel().select(nowObj);
+            chatList.setCellFactory(new ChatListCellFactory());
+            chatContentList.setCellFactory(new MessageCellFactory());
             System.out.println("Already has this link!");
         } else {
             ChatObj nowObj = new ChatObj(selectedOptionsToString, selectedOptionsToString_show);
+            this.clientService.observableList_chatListGroup_show_StringList.add(selectedOptionsToString);
             this.clientService.observableList_chatListGroup_hashmap.put(selectedOptionsToString, nowObj);
             this.clientService.observableList_chatListGroup.add(nowObj);
             showChatList();
@@ -330,20 +332,15 @@ public class Controller implements Initializable {
         /**
          * 上面的是对输入的内容进行检查
          */
-
-
         System.out.println("in showChatList, and for now the one selected is " + chatList.getSelectionModel().getSelectedItem());
-        // String selectedItem = chatList.getSelectionModel().getSelectedItem();
-        ChatObj selectedItem = chatList.getSelectionModel().getSelectedItem();
-
-
+        // ChatObj selectedItem = chatList.getSelectionModel().getSelectedItem();
         Long nowTime = System.currentTimeMillis();
+
+
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
         out.writeObject(sendPrivateMessage);
         out.flush();
-
-        // this.chatList.getSelectionModel();
 
 
         showMsg();
@@ -354,13 +351,24 @@ public class Controller implements Initializable {
 
     public synchronized void showMsg() {
         // 下面的是处理信息的，并且显示在右上方
-        List<Message> tmpMessageList = this.clientService.messageList.stream().filter(e ->
-                e.getSentBy().equals(sendTo)
-                        || (e.getSendTo().equals(sendTo))
-        ).collect(Collectors.toList());
+        if (sendTo.split(",").length == 1) {
+            System.out.println("Controller private msg");
+            List<Message> tmpMessageList = this.clientService.messageList.stream().filter(e ->
+                    (e.getSentBy().equals(sendTo) && e.getSendTo().equals(username))
+                            || (e.getSendTo().equals(sendTo) && e.getSentBy().equals(username))
+            ).collect(Collectors.toList());
+            ObservableList<Message> messageObservableList = FXCollections.observableArrayList(tmpMessageList);
+            this.chatContentList.setItems(messageObservableList);
+        } else {
+            // 群发消息显示
+            List<Message> tmpMessageList = clientService.messageList.stream().filter(e ->
+                            (e.getSendTo().equals(sendTo)))
+                    .collect(Collectors.toList());
+            ObservableList<Message> observableList = FXCollections.observableArrayList(tmpMessageList);
 
-        ObservableList<Message> messageObservableList = FXCollections.observableArrayList(tmpMessageList);
-        this.chatContentList.setItems(messageObservableList);
+            chatContentList.setItems(observableList);
+            System.out.println("Controller group msg");
+        }
     }
 
     /**
@@ -406,7 +414,7 @@ public class Controller implements Initializable {
         }
     }
 
-    private class ChatListCellFactory implements Callback<ListView<ChatObj>, ListCell<ChatObj>> {
+    static class ChatListCellFactory implements Callback<ListView<ChatObj>, ListCell<ChatObj>> {
         @Override
         public ListCell<ChatObj> call(ListView<ChatObj> param) {
             return new ListCell<ChatObj>() {

@@ -4,6 +4,7 @@ import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -98,12 +99,11 @@ public class ClientService implements Runnable {
                 case 5: {
                     System.out.println("client case 5");
                     saveMessage(message);
-                    // addLinks(message);
                     break;
                 }
                 // case 7: {
                 //     System.out.println("client case 7");
-                //     handShaking2(message);
+                //     saveMessageGroup(message);
                 //     break;
                 // }
             }
@@ -133,6 +133,55 @@ public class ClientService implements Runnable {
 
     public synchronized void saveMessage(Message message) {
         this.messageList.add(message);
+        String[] sendToUsrArr = message.getSendTo().split(",");
+        if (sendToUsrArr.length == 1) {
+            saveMessagePrivate(message);
+            return;
+        }
+
+        List<String> listForChange = new ArrayList<>();
+        for (int i = 0; i < sendToUsrArr.length; i++) {
+            sendToUsrArr[i] = sendToUsrArr[i].trim();
+            listForChange.add(sendToUsrArr[i]);
+        }
+        saveMessageGroup(message, listForChange);
+    }
+
+    public synchronized void saveMessageGroup(Message message, List<String> listForChange) {
+        System.out.println("groupMsg");
+        if (!this.observableList_chatListGroup_show_StringList.contains(message.getSendTo())) {
+            System.out.println("clientService saveMessageGroup not exists");
+
+            String selectedOptionsToString_show = changeIntoShow(listForChange);
+            Controller.ChatObj nowChatObj = new Controller.ChatObj(message.getSendTo()
+                    , selectedOptionsToString_show);
+            this.observableList_chatListGroup_hashmap.put(message.getSendTo(), nowChatObj);
+            this.observableList_chatListGroup.add(nowChatObj);
+            this.observableList_chatListGroup_show_StringList.add(message.getSendTo());
+            showChatList();
+            serviceShowMsg(message);
+        } else {
+            System.out.println("clientService saveMessageGroup exists");
+            serviceShowMsg(message);
+        }
+        System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
+    }
+
+
+    public void showChatList() {
+        ObservableList<Controller.ChatObj> privateList = observableList_chatListPrivate_chatObj;
+        ObservableList<Controller.ChatObj> groupList = observableList_chatListGroup;
+        ObservableList<Controller.ChatObj> allList = FXCollections.observableArrayList();
+        if (privateList != null) allList.addAll(privateList);
+        if (groupList != null) allList.addAll(groupList);
+        Platform.runLater(() -> {
+            controller.chatList.setItems(allList);
+            controller.chatList.setCellFactory(new Controller.ChatListCellFactory());
+        });
+    }
+
+    public synchronized void saveMessagePrivate(Message message) {
+        System.out.println("privateMsg");
         if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
             Platform.runLater(() -> {
                 this.observableList_chatListPrivate_chatObj.add(new Controller.ChatObj(message.getSentBy(), message.getSentBy()));
@@ -146,14 +195,26 @@ public class ClientService implements Runnable {
         System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
     }
 
+
     public void serviceShowMsg(Message message) {
         // 要显示哪些信息？
+        if (message.getSendTo().split(",").length == 1) {
+            System.out.println("The selected is " + selectedUsr);
+            System.out.println("private msg in ShowMsg");
+            showMsgPrivate(message);
+        } else {
+            System.out.println("The selected is " + selectedUsr);
+            System.out.println("group msg in ShowMsg");
+            showMsgGroup(message);
+        }
+    }
+
+    public void showMsgPrivate(Message message) {
         // 第一类，“我”收到的,即sendBy==selectedUsr
         // 第二类，“我”发出的，即sendTo==selectedUsr
-        System.out.println("The selected is " + selectedUsr);
         List<Message> tmpMessageList = this.messageList.stream().filter(e ->
-                        (e.getSendTo().equals(selectedUsr))
-                                || (e.getSentBy().equals(selectedUsr))
+                        (e.getSendTo().equals(selectedUsr) && e.getSentBy().equals(username))
+                                || (e.getSentBy().equals(selectedUsr) && e.getSendTo().equals(username))
                 )
                 .collect(Collectors.toList());
         ObservableList<Message> observableList = FXCollections.observableArrayList(tmpMessageList);
@@ -161,6 +222,23 @@ public class ClientService implements Runnable {
             controller.chatContentList.setItems(observableList);
         });
     }
+
+    public void showMsgGroup(Message message) {
+        List<Message> tmpMessageList = this.messageList.stream().filter(e ->
+                        (e.getSendTo().equals(message.getSendTo())))
+                .collect(Collectors.toList());
+        ObservableList<Message> observableList = FXCollections.observableArrayList(tmpMessageList);
+        Platform.runLater(() -> {
+            controller.chatContentList.setItems(observableList);
+        });
+    }
+
+    public String changeIntoShow(List<String> selectedOptions) {
+        String sb = selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
+                String.format("... (%d)", selectedOptions.size());
+        return sb;
+    }
+
 
     public Boolean getFlagSearchActives() {
         return flagSearchActives;
