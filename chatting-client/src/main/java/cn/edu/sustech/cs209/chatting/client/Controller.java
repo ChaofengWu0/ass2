@@ -21,7 +21,6 @@ import java.net.Socket;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class Controller implements Initializable {
@@ -41,7 +40,9 @@ public class Controller implements Initializable {
     @FXML
     TextArea inputArea;
 
-    private List<String> selectedUsers;
+    private List<String> selectedUserListGlobal;
+    // private String selectedUserListGlobal_toString;
+    // private String selectedUserListGlobal_toString_show;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -64,7 +65,7 @@ public class Controller implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         this.actives = new ArrayList<>();
-        this.selectedUsers = new ArrayList<>();
+        this.selectedUserListGlobal = new ArrayList<>();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -172,16 +173,26 @@ public class Controller implements Initializable {
         // 选了用户并且点了ok之后.
         String selectedUser = user.get();
         if (selectedUser == null) return;
-        if (clientService.observableList_chatList.contains(selectedUser)) {
-            // 怎么打开这个对话框.
-            System.out.println("已经有这个链接了");
+        if (clientService.observableList_chatListPrivate.contains(selectedUser)) {
+            chatList.getSelectionModel().select(selectedUser);
+            System.out.println("Already has this link");
         } else {
-            clientService.observableList_chatList.add(selectedUser);
-            chatList.setItems(clientService.observableList_chatList);
+            clientService.observableList_chatListPrivate.add(selectedUser);
+            showChatList();
         }
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     }
+
+    public void showChatList() {
+        ObservableList<String> privateList = clientService.observableList_chatListPrivate;
+        ObservableList<String> groupList = clientService.observableList_chatListGroup_show;
+        ObservableList<String> allList = FXCollections.observableArrayList();
+        if (privateList != null) allList.addAll(privateList);
+        if (groupList != null) allList.addAll(groupList);
+        chatList.setItems(allList);
+    }
+
 
     /**
      * A new dialog should contain a multi-select list, showing all user's name.
@@ -193,9 +204,100 @@ public class Controller implements Initializable {
      * If there are <= 3 users: do not display the ellipsis, for example:
      * UserA, UserB (2)
      */
+
+    public void alertActivesNotEnough() {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Warning Dialog");
+        alert.setHeaderText(null);
+        alert.setContentText("The number of actives is not enough, you should choose to start a private chat.");
+        alert.showAndWait();
+    }
+
+    public void alertSelectedNotEnough() {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Warning Dialog");
+        alert.setHeaderText(null);
+        alert.setContentText("The number of selected is not enough, you should choose to start a private chat or choose more users to chat.");
+        alert.showAndWait();
+    }
+
     @FXML
     public void createGroupChat() {
+        Stage stage = new Stage();
+
+        ComboBox<CheckBox> userSel = new ComboBox<>();
+        ArrayList<CheckBox> userSelArr = new ArrayList<>();
+        for (String active : actives) {
+            userSelArr.add(new CheckBox(active));
+        }
+
+        if (userSelArr.size() < 2) {
+            alertActivesNotEnough();
+            stage.close();
+            return;
+        }
+
+        userSel.setItems(FXCollections.observableList(userSelArr));
+        List<String> selectedOptions = new ArrayList<>();
+        Button okBtn = new Button("OK");
+        okBtn.setOnAction(e -> {
+            for (CheckBox checkBox : userSel.getItems()) {
+                if (checkBox.isSelected()) {
+                    selectedOptions.add(checkBox.getText());
+                }
+            }
+            System.out.println("Selected options: " + selectedOptions);
+            stage.close();
+        });
+
+        HBox box = new HBox(200);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(30, 30, 30, 30));
+        box.getChildren().addAll(userSelArr);
+        box.getChildren().addAll(okBtn);
+        stage.setScene(new Scene(box));
+        stage.showAndWait();
+
+        // 选了用户并且点了ok之后.
+        if (selectedOptions.size() < 2) {
+            alertSelectedNotEnough();
+            return;
+        }
+        // 排序
+        selectedOptions.add(username);
+        Collections.sort(selectedOptions);
+        this.selectedUserListGlobal = selectedOptions;
+
+        String selectedOptionsToString = changeIntoString(selectedOptions);
+        String selectedOptionsToString_show = changeIntoShow(selectedOptions);
+
+        if (this.clientService.observableList_chatListGroup.contains(selectedOptionsToString)) {
+            // 怎么打开这个对话框.
+            chatList.getSelectionModel().select(selectedOptionsToString_show);
+            System.out.println("Already has this link!");
+        } else {
+            changeIntoString(selectedOptions);
+            this.clientService.observableList_chatListGroup.add(selectedOptionsToString);
+            clientService.observableList_chatListGroup_show.add(selectedOptionsToString_show);
+            showChatList();
+        }
     }
+
+    public String changeIntoString(List<String> selectedOptions) {
+        StringBuilder sb = new StringBuilder();
+        for (String selectedOption : selectedOptions) {
+            sb.append(selectedOption).append(",").append(" ");
+        }
+        sb.setLength(sb.length() - 2);
+        return sb.toString();
+    }
+
+    public String changeIntoShow(List<String> selectedOptions) {
+        String sb = selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
+                String.format("... (%d)", selectedOptions.size());
+        return sb;
+    }
+
 
     /**
      * Sends the message to the <b>currently selected</b> chat.
@@ -204,7 +306,7 @@ public class Controller implements Initializable {
      * After sending the message, you should clear the text input field.
      */
     @FXML
-    public synchronized void doSendMessage() throws IOException, InterruptedException {
+    public synchronized void doSendMessage() throws IOException {
         // TODO
         if (sendTo == null) {
             Alert alert = new Alert(Alert.AlertType.WARNING);

@@ -34,7 +34,9 @@ public class ClientService implements Runnable {
     List<Message> messageList;
     List<String> chatList;
     List<String> hasLinks;
-    ObservableList<String> observableList_chatList;
+    ObservableList<String> observableList_chatListPrivate;
+    ObservableList<String> observableList_chatListGroup;
+    ObservableList<String> observableList_chatListGroup_show;
 
 
     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
@@ -48,7 +50,9 @@ public class ClientService implements Runnable {
         this.login = false;
         this.flagSearchActives = false;
         this.hasLinks = new ArrayList<>();
-        this.observableList_chatList = FXCollections.observableArrayList(hasLinks);
+        this.observableList_chatListPrivate = FXCollections.observableArrayList(hasLinks);
+        this.observableList_chatListGroup = FXCollections.observableArrayList();
+        this.observableList_chatListGroup_show = FXCollections.observableArrayList();
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
         this.selectedUsr = sendTo;
@@ -125,10 +129,10 @@ public class ClientService implements Runnable {
 
     public synchronized void saveMessage(Message message) {
         this.messageList.add(message);
-        if (!this.observableList_chatList.contains(message.getSentBy())) {
+        if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
             Platform.runLater(() -> {
-                this.observableList_chatList.add(message.getSentBy());
-                controller.chatList.setItems(observableList_chatList);
+                this.observableList_chatListPrivate.add(message.getSentBy());
+                controller.chatList.setItems(observableList_chatListPrivate);
             });
             serviceShowMsg(message);
         } else {
@@ -199,5 +203,13 @@ public class ClientService implements Runnable {
 
     public void setSelectedUsr(String selectedUsr) {
         this.selectedUsr = selectedUsr;
+    }
+
+    public ObservableList<String> getObservableList_chatListGroup() {
+        return observableList_chatListGroup;
+    }
+
+    public void setObservableList_chatListGroup(ObservableList<String> observableList_chatListGroup) {
+        this.observableList_chatListGroup = observableList_chatListGroup;
     }
 }
