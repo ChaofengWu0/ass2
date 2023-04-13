@@ -65,7 +65,6 @@ public class Controller implements Initializable {
     public void initialize(URL url, ResourceBundle resourceBundle) {
         this.actives = new ArrayList<>();
         this.selectedUsers = new ArrayList<>();
-        // this.chatArrayList = FXCollections.observableArrayList();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
@@ -73,34 +72,51 @@ public class Controller implements Initializable {
         Optional<String> input = dialog.showAndWait();
         if (input.isPresent() && !input.get().isEmpty()) {
             username = input.get();
+
             /*
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
              */
             try {
                 socket = new Socket("localhost", serverPort);
-                System.out.println("in");
                 out = new ObjectOutputStream(socket.getOutputStream());
-                System.out.println("out");
                 in = new ObjectInputStream(socket.getInputStream());
                 System.out.println(socket);
-                clientService = new ClientService(socket, username, in, out, new ReentrantLock(), this);
+                clientService = new ClientService(socket, username, in, out, this, sendTo);
                 Thread thread = new Thread(clientService);
                 thread.start();
                 // handshaking1
                 check();
                 while (clientService.getFlagCheckLogin() == null) {
-
+                    Thread.sleep(10);
+                    // System.out.println(clientService.getFlagCheckLogin());
                 }
+                clientService.setFlagCheckLogin(null);
                 // login没成功，走这里,要弹出警告
-                if (!clientService.getLogin()) {
-                    // 弹出警告
+                try {
+                    if (!clientService.getLogin()) {
+                        throw new RuntimeException();
+                    }
+                } catch (RuntimeException e) {
+                    thread.interrupt();
+                    Alert alert = new Alert(Alert.AlertType.WARNING);
+                    alert.setTitle("Warning Dialog");
+                    alert.setHeaderText(null);
+                    alert.setContentText("The user has already been online!\nPlease input a user not online!");
+                    alert.showAndWait();
+                    Platform.exit();
+                    initialize(url, resourceBundle);
+                    System.exit(0);
+                    // return;
                 }
+
                 currentUsername.setText("Current User: " + username);
                 // 成功上线，要发一个message
                 loginSuccess();
 
             } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
             System.out.println("username: " + username);
@@ -114,6 +130,8 @@ public class Controller implements Initializable {
                 .addListener((o, oldValue, newValue) -> {
                             // 捕获到了，就要把右边的改过去
                             sendTo = newValue;
+                            this.clientService.setSelectedUsr(sendTo);
+                            System.out.println("now sendTo: " + sendTo);
                             showMsg();
                         }
                 );
@@ -153,9 +171,10 @@ public class Controller implements Initializable {
 
         // 选了用户并且点了ok之后.
         String selectedUser = user.get();
+        if (selectedUser == null) return;
         if (clientService.observableList_chatList.contains(selectedUser)) {
+            // 怎么打开这个对话框.
             System.out.println("已经有这个链接了");
-            // 打开就好
         } else {
             clientService.observableList_chatList.add(selectedUser);
             chatList.setItems(clientService.observableList_chatList);
@@ -185,15 +204,29 @@ public class Controller implements Initializable {
      * After sending the message, you should clear the text input field.
      */
     @FXML
-    public synchronized void doSendMessage() throws IOException {
+    public synchronized void doSendMessage() throws IOException, InterruptedException {
         // TODO
+        if (sendTo == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Warning Dialog");
+            alert.setHeaderText(null);
+            alert.setContentText("You should select a user to send your msg");
+            alert.showAndWait();
+        }
         String data = inputArea.getText();
+        if (data == null || data.trim().isEmpty()) {
+            inputArea.clear();
+            System.out.println("空格");
+            return;
+        }
+
         Long nowTime = System.currentTimeMillis();
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
         System.out.println(username + " 现在有 " + this.clientService.messageList.size() + "条消息");
         out.writeObject(sendPrivateMessage);
         out.flush();
+        // Thread.sleep(10);
         showMsg();
         this.chatContentList.setCellFactory(new MessageCellFactory());
         inputArea.clear();
@@ -202,8 +235,11 @@ public class Controller implements Initializable {
 
     public synchronized void showMsg() {
         // 下面的是处理信息的，并且显示在右上方
-        List<Message> tmpMessageList = this.clientService.messageList.stream().filter(e -> e.getSentBy().equals(sendTo)
-                || e.getSentBy().equals(username)).collect(Collectors.toList());
+        List<Message> tmpMessageList = this.clientService.messageList.stream().filter(e ->
+                e.getSentBy().equals(sendTo)
+                        || (e.getSendTo().equals(sendTo))
+        ).collect(Collectors.toList());
+
         ObservableList<Message> messageObservableList = FXCollections.observableArrayList(tmpMessageList);
         this.chatContentList.setItems(messageObservableList);
     }
@@ -221,6 +257,8 @@ public class Controller implements Initializable {
                 public void updateItem(Message msg, boolean empty) {
                     super.updateItem(msg, empty);
                     if (empty || Objects.isNull(msg)) {
+                        setText(null);
+                        setGraphic(null);
                         return;
                     }
 
@@ -256,167 +294,4 @@ public class Controller implements Initializable {
     public void setActives(List<String> actives) {
         this.actives = actives;
     }
-
-    // public ObservableList<String> getChatArrayList() {
-    //     return chatArrayList;
-    // }
-    //
-    // public void setChatArrayList(ObservableList<String> chatArrayList) {
-    //     this.chatArrayList = chatArrayList;
-    // }
-
-// public class ClientService implements Runnable {
-    //     private final Socket socket;
-    //
-    //     private Controller controller;
-    //     // private ReentrantLock searchActiveLock;
-    //     private ObjectInputStream in;
-    //     private ObjectOutputStream out;
-    //     private Integer type;
-    //
-    //     private Boolean flagCheckLogin;
-    //
-    //     private Boolean flagSearchActives;
-    //     private Boolean login;
-    //     private String username;
-    //     private List<String> actives;
-    //     private List<Message> messageList;
-    //     List<String> hasLinks;
-    //     ObservableList<String> observableList;
-    //
-    //
-    //     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock searchActiveLock, Controller controller) {
-    //         this.controller = controller;
-    //         // this.searchActiveLock = searchActiveLock;
-    //         this.socket = socket;
-    //         this.username = username;
-    //         this.in = in;
-    //         this.out = out;
-    //         this.actives = new ArrayList<>();
-    //         this.login = false;
-    //         this.flagCheckLogin = false;
-    //         this.flagSearchActives = false;
-    //         this.hasLinks = new ArrayList<>();
-    //         this.observableList = FXCollections.observableArrayList(hasLinks);
-    //         this.messageList = new ArrayList<>();
-    //     }
-    //
-    //     @Override
-    //     public void run() {
-    //         try {
-    //             try {
-    //                 doClientService();
-    //             } finally {
-    //                 socket.close();
-    //             }
-    //         } catch (IOException | ClassNotFoundException e) {
-    //             e.printStackTrace();
-    //         }
-    //     }
-    //
-    //     public void doClientService() throws IOException, ClassNotFoundException {
-    //         while (true) {
-    //             Object obj = in.readObject();
-    //             if (obj == null) continue;
-    //             Message message = (Message) obj;
-    //             int type = message.getType();
-    //             switch (type) {
-    //                 case 1: {
-    //                     System.out.println("client case 1");
-    //                     whetherLogin(message);
-    //                     this.flagCheckLogin = true;
-    //                     break;
-    //                 }
-    //                 case 3: {
-    //                     System.out.println("client case 3");
-    //                     // 获取到了目前有多少人在线
-    //                     getHowManyActives(message);
-    //                     // List<String> list = message.getActives();
-    //                     // Platform.runLater(()-> = list);
-    //                     break;
-    //                 }
-    //                 case 5: {
-    //                     System.out.println("client case 5");
-    //                     saveMessage(message);
-    //                     // addLinks(message);
-    //                     break;
-    //                 }
-    //                 // case 7: {
-    //                 //     System.out.println("client case 7");
-    //                 //     handShaking2(message);
-    //                 //     break;
-    //                 // }
-    //             }
-    //         }
-    //     }
-    //
-    //     public void whetherLogin(Message message) {
-    //         if (message.getData().equals("success")) {
-    //             this.login = true;
-    //         } else {
-    //             this.login = false;
-    //             System.out.println("你的账号已在其他地方登录或密码错误");
-    //         }
-    //     }
-    //
-    //     public void getHowManyActives(Message message) {
-    //         this.actives.add(message.getData());
-    //         // this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size()));
-    //         Platform.runLater(() -> {
-    //             controller.setActives(this.actives);
-    //             System.out.println("platform");
-    //             // currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
-    //         });
-    //     }
-    //
-    //     public void saveMessage(Message message) {
-    //         this.messageList.add(message);
-    //         ObservableList<Message> observableList = FXCollections.observableArrayList(this.messageList);
-    //         Platform.runLater(() -> {
-    //             controller.chatContentList.setItems(observableList);
-    //         });
-    //     }
-    //
-    //     public Boolean getFlagSearchActives() {
-    //         return flagSearchActives;
-    //     }
-    //
-    //     public void setFlagSearchActives(Boolean flagSearchActives) {
-    //         this.flagSearchActives = flagSearchActives;
-    //     }
-    //
-    //     public Integer getType() {
-    //         return type;
-    //     }
-    //
-    //     public void setType(Integer type) {
-    //         this.type = type;
-    //     }
-    //
-    //     public List<String> getActives() {
-    //         return actives;
-    //     }
-    //
-    //     public void setActives(List<String> actives) {
-    //         this.actives = actives;
-    //     }
-    //
-    //     public Boolean getLogin() {
-    //         return login;
-    //     }
-    //
-    //     public void setLogin(Boolean login) {
-    //         this.login = login;
-    //     }
-    //
-    //     public Boolean getFlagCheckLogin() {
-    //         return flagCheckLogin;
-    //     }
-    //
-    //     public void setFlagCheckLogin(Boolean flagCheckLogin) {
-    //         this.flagCheckLogin = flagCheckLogin;
-    //     }
-    //
-    // }
-
 }

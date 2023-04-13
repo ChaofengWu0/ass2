@@ -12,52 +12,56 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class ServerService implements Runnable {
     private Socket client;
-    private ReentrantLock lock;
-    private ReentrantLock outLock;
-    private ReentrantLock inLock;
+    // private ReentrantLock lock;
+    // private ReentrantLock outLock;
+    // private ReentrantLock inLock;
 
 
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private ConcurrentHashMap<String, ServerService> hashMap;
     private Connection connection;
+    private List<String> actives;
 
-    public ServerService(Socket client, ConcurrentHashMap<String, ServerService> hashMap) throws IOException {
+    public ServerService(Socket client, ConcurrentHashMap<String, ServerService> hashMap, List<String> actives) throws IOException {
         this.client = client;
         this.hashMap = hashMap;
+        this.actives = actives;
         in = new ObjectInputStream(client.getInputStream());
         out = new ObjectOutputStream(client.getOutputStream());
     }
 
-    public Connection getConnection() throws ClassNotFoundException {
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        Connection conn = null;
-        try {
-            String url = "jdbc:mysql://localhost:3306/java2?useSSL=FALSE&serverTimezone=UTC";
-            String user = "root";
-            String password = "123456";
-            conn = DriverManager.getConnection(url, user, password);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return conn;
-    }
+    // public Connection getConnection() throws ClassNotFoundException {
+    //     Class.forName("com.mysql.cj.jdbc.Driver");
+    //     Connection conn = null;
+    //     try {
+    //         String url = "jdbc:mysql://localhost:3306/java2?useSSL=FALSE&serverTimezone=UTC";
+    //         String user = "root";
+    //         String password = "123456";
+    //         conn = DriverManager.getConnection(url, user, password);
+    //     } catch (Exception e) {
+    //         e.printStackTrace();
+    //     }
+    //     return conn;
+    // }
 
     @Override
     public void run() {
-        lock = new ReentrantLock();
-        outLock = new ReentrantLock();
-        inLock = new ReentrantLock();
+        System.out.println("serverService run...");
         try {
-            // try {
-            connection = getConnection();
-            System.out.println("serverService run...");
             doService();
-            // } finally {
-            //     client.close();
-            // }
-        } catch (ClassNotFoundException | IOException | SQLException e) {
+        } catch (IOException e) {
             e.printStackTrace();
+        } catch (ClassNotFoundException | SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                in.close();
+                out.close();
+                client.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -76,7 +80,6 @@ public class ServerService implements Runnable {
                     // 这里面还没有完善，要自己再弄弄
                     System.out.println("server case 0");
                     searchWhetherRunnable(message.getData());
-                    System.out.println("message data: " + message.getData());
                     break;
                 }
                 case 2: {
@@ -99,65 +102,86 @@ public class ServerService implements Runnable {
         }
     }
 
-    public synchronized void searchWhetherRunnable(String username) {
-        try {
-            PreparedStatement selectWhetherExist;
-            PreparedStatement selectStatus;
-            PreparedStatement allowLogin;
+    public synchronized void searchWhetherRunnable(String username) throws IOException {
+        if (!actives.contains(username)) {
+            Message loginSuccess = new Message(1, "success");
+            System.out.println("success");
+            out.writeObject(loginSuccess);
+            out.flush();
+            actives.add(username);
+            hashMap.put(username, this);
+        } else {
+            Message loginFailed = new Message(1, "failed");
+            System.out.println("failed");
+            out.writeObject(loginFailed);
+            out.flush();
+        }
+        // try {
+        // PreparedStatement selectWhetherExist;
+        // PreparedStatement selectStatus;
+        // PreparedStatement allowLogin;
+        //
+        // String selectSQLExist = "select * from user where username = ?;";
+        // String selectSQLStatus = "select status from user where username = ? ";
+        // String allowLoginSQL = "update user set status = ? where username = ? ";
+        //
+        // selectWhetherExist = connection.prepareStatement(selectSQLExist);
+        // selectStatus = connection.prepareStatement(selectSQLStatus);
+        // allowLogin = connection.prepareStatement(allowLoginSQL);
+        //
+        // selectWhetherExist.setString(1, username);
+        /**
+         * 从105到118是
+         * 2023-4-12注释掉的数据库内容
+         */
 
-            String selectSQLExist = "select * from user where username = ?;";
-            String selectSQLStatus = "select status from user where username = ? ";
-            String allowLoginSQL = "update user set status = ? where username = ? ";
-
-            selectWhetherExist = connection.prepareStatement(selectSQLExist);
-            selectStatus = connection.prepareStatement(selectSQLStatus);
-            allowLogin = connection.prepareStatement(allowLoginSQL);
-
-            selectWhetherExist.setString(1, username);
+            /*
             // if (selectWhetherExist.executeQuery().getFetchSize() != 0) {
             // 说明数据库里有这个用户，不能再创建
+            这一块是早于2023-4-12注释掉的内容
+             */
 
-            // 先不查有没有这个用户
-            // 我查他的登陆状态 规定1为登录 0为下线
-            selectStatus.setString(1, username);
-            ResultSet rs = selectStatus.executeQuery();
-            rs.next();
-            Integer status = rs.getInt(1);
-            if (status != null && status == 0) {
-                // 可以登录
-                // 既然可以登录，那么记录此次登录，给hashmap填充
-                // lock.lock();
-                hashMap.put(username, this);
-                // lock.unlock();
-                /**
-                 * 暂时先注释
-                 */
-                // allowLogin.setInt(1, 1);
-                // allowLogin.setString(2, username);
-                // allowLogin.execute();
-
-                // 发送信息给client
-                Message loginSuccess = new Message(1, "success");
-                // outLock.lock();
-                out.writeObject(loginSuccess);
-                out.flush();
-                // outLock.unlock();
-                System.out.println("成功登录");
-            } else {
-                Message loginFailed = new Message(1, "failed");
-                // outLock.lock();
-                out.writeObject(loginFailed);
-                out.flush();
-                // outLock.unlock();
-                System.out.println("您的帐号在其他地方已经登陆");
-            }
-            // }
-            // else {
-            // 可以创建并且可以登录
-            // }
-        } catch (SQLException | IOException e) {
-            throw new RuntimeException(e);
-        }
+        // 先不查有没有这个用户
+        // 我查他的登陆状态 规定1为登录 0为下线
+        // selectStatus.setString(1, username);
+        // ResultSet rs = selectStatus.executeQuery();
+        // rs.next();
+        // Integer status = rs.getInt(1);
+        //     if (status != null && status == 0) {
+        //         // 可以登录
+        //         // 既然可以登录，那么记录此次登录，给hashmap填充
+        //         // lock.lock();
+        //         hashMap.put(username, this);
+        //         // lock.unlock();
+        //         /**
+        //          * 暂时先注释
+        //          */
+        //         // allowLogin.setInt(1, 1);
+        //         // allowLogin.setString(2, username);
+        //         // allowLogin.execute();
+        //
+        //         // 发送信息给client
+        //         Message loginSuccess = new Message(1, "success");
+        //         // outLock.lock();
+        //         out.writeObject(loginSuccess);
+        //         out.flush();
+        //         // outLock.unlock();
+        //         System.out.println("成功登录");
+        //     } else {
+        //         Message loginFailed = new Message(1, "failed");
+        //         // outLock.lock();
+        //         out.writeObject(loginFailed);
+        //         out.flush();
+        //         // outLock.unlock();
+        //         System.out.println("您的帐号在其他地方已经登陆");
+        //     }
+        //     // }
+        //     // else {
+        //     // 可以创建并且可以登录
+        //     // }
+        // } catch (SQLException | IOException e) {
+        //     throw new RuntimeException(e);
+        // }
     }
 
     public void tellAllClients(Message message) {

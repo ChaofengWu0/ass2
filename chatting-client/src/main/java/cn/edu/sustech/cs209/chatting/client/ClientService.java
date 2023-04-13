@@ -1,6 +1,5 @@
 package cn.edu.sustech.cs209.chatting.client;
 
-import cn.edu.sustech.cs209.chatting.client.Controller;
 import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -29,6 +28,8 @@ public class ClientService implements Runnable {
     private Boolean flagSearchActives;
     private Boolean login;
     private String username;
+    private String selectedUsr;
+
     private List<String> actives;
     List<Message> messageList;
     List<String> chatList;
@@ -36,7 +37,7 @@ public class ClientService implements Runnable {
     ObservableList<String> observableList_chatList;
 
 
-    public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, ReentrantLock searchActiveLock, Controller controller) {
+    public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
         this.controller = controller;
         // this.searchActiveLock = searchActiveLock;
         this.socket = socket;
@@ -45,12 +46,12 @@ public class ClientService implements Runnable {
         this.out = out;
         this.actives = new ArrayList<>();
         this.login = false;
-        this.flagCheckLogin = false;
         this.flagSearchActives = false;
         this.hasLinks = new ArrayList<>();
         this.observableList_chatList = FXCollections.observableArrayList(hasLinks);
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
+        this.selectedUsr = sendTo;
     }
 
     @Override
@@ -66,8 +67,8 @@ public class ClientService implements Runnable {
         }
     }
 
-    public void doClientService() throws IOException, ClassNotFoundException {
-        while (true) {
+    public synchronized void doClientService() throws IOException, ClassNotFoundException {
+        while (!Thread.currentThread().isInterrupted()) {
             Object obj = in.readObject();
             if (obj == null) continue;
             Message message = (Message) obj;
@@ -76,7 +77,6 @@ public class ClientService implements Runnable {
                 case 1: {
                     System.out.println("client case 1");
                     whetherLogin(message);
-                    this.flagCheckLogin = true;
                     break;
                 }
                 case 3: {
@@ -100,15 +100,19 @@ public class ClientService implements Runnable {
                 // }
             }
         }
+        System.out.println("interrupted");
     }
 
     public void whetherLogin(Message message) {
         if (message.getData().equals("success")) {
+            System.out.println(message.getData());
             this.login = true;
         } else {
+            System.out.println(message.getData());
             this.login = false;
             System.out.println("你的账号已在其他地方登录或密码错误");
         }
+        this.flagCheckLogin = true;
     }
 
     public void getHowManyActives(Message message) {
@@ -122,8 +126,8 @@ public class ClientService implements Runnable {
     public synchronized void saveMessage(Message message) {
         this.messageList.add(message);
         if (!this.observableList_chatList.contains(message.getSentBy())) {
-            this.observableList_chatList.add(message.getSentBy());
             Platform.runLater(() -> {
+                this.observableList_chatList.add(message.getSentBy());
                 controller.chatList.setItems(observableList_chatList);
             });
             serviceShowMsg(message);
@@ -134,8 +138,15 @@ public class ClientService implements Runnable {
     }
 
     public void serviceShowMsg(Message message) {
-        List<Message> tmpMessageList = this.messageList.stream().filter(e -> e.getSendTo().equals(message.getSendTo())
-                || e.getSentBy().equals(username)).collect(Collectors.toList());
+        // 要显示哪些信息？
+        // 第一类，“我”收到的,即sendBy==selectedUsr
+        // 第二类，“我”发出的，即sendTo==selectedUsr
+        System.out.println("The selected is " + selectedUsr);
+        List<Message> tmpMessageList = this.messageList.stream().filter(e ->
+                        (e.getSendTo().equals(selectedUsr))
+                                || (e.getSentBy().equals(selectedUsr))
+                )
+                .collect(Collectors.toList());
         ObservableList<Message> observableList = FXCollections.observableArrayList(tmpMessageList);
         Platform.runLater(() -> {
             controller.chatContentList.setItems(observableList);
@@ -182,4 +193,11 @@ public class ClientService implements Runnable {
         this.flagCheckLogin = flagCheckLogin;
     }
 
+    public String getSelectedUsr() {
+        return selectedUsr;
+    }
+
+    public void setSelectedUsr(String selectedUsr) {
+        this.selectedUsr = selectedUsr;
+    }
 }
