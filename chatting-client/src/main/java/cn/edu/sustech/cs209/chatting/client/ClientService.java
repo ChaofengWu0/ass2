@@ -4,21 +4,19 @@ import cn.edu.sustech.cs209.chatting.common.Message;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class ClientService implements Runnable {
     private final Socket socket;
 
     private Controller controller;
-    // private ReentrantLock searchActiveLock;
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private Integer type;
@@ -37,7 +35,9 @@ public class ClientService implements Runnable {
     ObservableList<Controller.ChatObj> observableList_chatListPrivate_chatObj;
     ObservableList<Controller.ChatObj> observableList_chatListGroup;
     ObservableList<String> observableList_chatListPrivate;
-    ObservableList<Controller.ChatObj> observableList_chatListGroup_show;
+    // ObservableList<Controller.ChatObj> observableList_chatListGroup_show;
+    ObservableList<String> observableList_chatListGroup_show_StringList;
+    HashMap<String, Controller.ChatObj> observableList_chatListGroup_hashmap;
 
 
     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
@@ -53,8 +53,10 @@ public class ClientService implements Runnable {
         // this.hasLinks = new ArrayList<>();
         this.observableList_chatListPrivate_chatObj = FXCollections.observableArrayList();
         this.observableList_chatListGroup = FXCollections.observableArrayList();
-        this.observableList_chatListGroup_show = FXCollections.observableArrayList();
+        this.observableList_chatListGroup_hashmap = new HashMap<>();
+        // this.observableList_chatListGroup_show = FXCollections.observableArrayList();
         this.observableList_chatListPrivate = FXCollections.observableArrayList();
+        this.observableList_chatListGroup_show_StringList = FXCollections.observableArrayList();
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
         this.selectedUsr = sendTo;
@@ -224,20 +226,12 @@ public class ClientService implements Runnable {
         this.observableList_chatListGroup = observableList_chatListGroup;
     }
 
-    public ObservableList<Controller.ChatObj> getObservableList_chatListGroup_show() {
-        return observableList_chatListGroup_show;
+    public ObservableList<String> getObservableList_chatListGroup_show_StringList() {
+        return observableList_chatListGroup_show_StringList;
     }
 
-    public void setObservableList_chatListGroup_show(ObservableList<Controller.ChatObj> observableList_chatListGroup_show) {
-        this.observableList_chatListGroup_show = observableList_chatListGroup_show;
+    public void setObservableList_chatListGroup_show_StringList(ObservableList<String> observableList_chatListGroup_show_StringList) {
+        this.observableList_chatListGroup_show_StringList = observableList_chatListGroup_show_StringList;
     }
 
-
-    // public ObservableList<String> getObservableList_chatListGroup() {
-    //     return observableList_chatListGroup;
-    // }
-    //
-    // public void setObservableList_chatListGroup(ObservableList<String> observableList_chatListGroup) {
-    //     this.observableList_chatListGroup = observableList_chatListGroup;
-    // }
 }

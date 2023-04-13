@@ -41,7 +41,7 @@ public class Controller implements Initializable {
     @FXML
     TextArea inputArea;
 
-    private List<String> selectedUserListGlobal;
+    private List<ChatObj> selectedUserListGlobal;
     // private String selectedUserListGlobal_toString;
     // private String selectedUserListGlobal_toString_show;
     final int serverPort = 9999;
@@ -190,7 +190,7 @@ public class Controller implements Initializable {
 
     public void showChatList() {
         ObservableList<ChatObj> privateList = clientService.observableList_chatListPrivate_chatObj;
-        ObservableList<ChatObj> groupList = clientService.observableList_chatListGroup_show;
+        ObservableList<ChatObj> groupList = clientService.observableList_chatListGroup;
         ObservableList<ChatObj> allList = FXCollections.observableArrayList();
         if (privateList != null) allList.addAll(privateList);
         if (groupList != null) allList.addAll(groupList);
@@ -228,63 +228,65 @@ public class Controller implements Initializable {
 
     @FXML
     public void createGroupChat() {
-        //     Stage stage = new Stage();
-        //
-        //     ComboBox<ChatObj> userSel = new ComboBox<>();
-        //     ArrayList<CheckBox> userSelArr = new ArrayList<>();
-        //     for (ChatObj active : actives) {
-        //         userSelArr.add(new CheckBox(active.actualData));
-        //     }
-        //
-        //     if (userSelArr.size() < 2) {
-        //         alertActivesNotEnough();
-        //         stage.close();
-        //         return;
-        //     }
-        //
-        //     userSel.setItems(FXCollections.observableList(userSelArr));
-        //     List<String> selectedOptions = new ArrayList<>();
-        //     Button okBtn = new Button("OK");
-        //     okBtn.setOnAction(e -> {
-        //         for (CheckBox checkBox : userSel.getItems()) {
-        //             if (checkBox.isSelected()) {
-        //                 selectedOptions.add(checkBox.getText());
-        //             }
-        //         }
-        //         System.out.println("Selected options: " + selectedOptions);
-        //         stage.close();
-        //     });
-        //
-        //     HBox box = new HBox(200);
-        //     box.setAlignment(Pos.CENTER);
-        //     box.setPadding(new Insets(30, 30, 30, 30));
-        //     box.getChildren().addAll(userSelArr);
-        //     box.getChildren().addAll(okBtn);
-        //     stage.setScene(new Scene(box));
-        //     stage.showAndWait();
-        //
-        //     // 选了用户并且点了ok之后.
-        //     if (selectedOptions.size() < 2) {
-        //         alertSelectedNotEnough();
-        //         return;
-        //     }
-        //     // 排序
-        //     selectedOptions.add(username);
-        //     Collections.sort(selectedOptions);
-        //     this.selectedUserListGlobal = selectedOptions;
-        //     String selectedOptionsToString = changeIntoString(selectedOptions);
-        //     String selectedOptionsToString_show = changeIntoShow(selectedOptions);
-        //     if (this.clientService.observableList_chatListGroup.contains(selectedOptionsToString)) {
-        //         // 怎么打开这个对话框.
-        //         chatList.getSelectionModel().select(selectedOptionsToString_show);
-        //         System.out.println("Already has this link!");
-        //     } else {
-        //         changeIntoString(selectedOptions);
-        //         this.clientService.observableList_chatListGroup.add(selectedOptionsToString);
-        //         clientService.observableList_chatListGroup_show.add(selectedOptionsToString_show);
-        //         // chatList.getSelectionModel().select(selectedOptionsToString_show);
-        //         showChatList();
-        //     }
+        Stage stage = new Stage();
+
+        ComboBox<CheckBox> userSel = new ComboBox<>();
+        ArrayList<CheckBox> userSelArr = new ArrayList<>();
+
+        for (ChatObj active : actives) {
+            userSelArr.add(new CheckBox(active.actualData));
+        }
+        System.out.println("userSelArr size : " + userSelArr.size());
+        if (userSelArr.size() < 2) {
+            alertActivesNotEnough();
+            stage.close();
+            return;
+        }
+
+        userSel.setItems(FXCollections.observableList(userSelArr));
+        List<String> selectedOptions = new ArrayList<>();
+        Button okBtn = new Button("OK");
+        okBtn.setOnAction(e -> {
+            for (CheckBox checkBox : userSel.getItems()) {
+                if (checkBox.isSelected()) {
+                    selectedOptions.add(checkBox.getText());
+                }
+            }
+            System.out.println("Selected options: " + selectedOptions);
+            stage.close();
+        });
+
+        HBox box = new HBox(200);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(30, 30, 30, 30));
+        box.getChildren().addAll(userSelArr);
+        box.getChildren().addAll(okBtn);
+        stage.setScene(new Scene(box));
+        stage.showAndWait();
+
+        // 选了用户并且点了ok之后.
+        if (selectedOptions.size() < 2) {
+            alertSelectedNotEnough();
+            return;
+        }
+        // 排序
+        selectedOptions.add(username);
+        Collections.sort(selectedOptions);
+
+        String selectedOptionsToString = changeIntoString(selectedOptions);
+        String selectedOptionsToString_show = changeIntoShow(selectedOptions);
+        if (this.clientService.observableList_chatListGroup_show_StringList.contains(selectedOptionsToString)) {
+            // 怎么打开这个对话框.
+            this.clientService.observableList_chatListGroup_show_StringList.add(selectedOptionsToString);
+            ChatObj nowObj = this.clientService.observableList_chatListGroup_hashmap.get(selectedOptionsToString);
+            chatList.getSelectionModel().select(nowObj);
+            System.out.println("Already has this link!");
+        } else {
+            ChatObj nowObj = new ChatObj(selectedOptionsToString, selectedOptionsToString_show);
+            this.clientService.observableList_chatListGroup_hashmap.put(selectedOptionsToString, nowObj);
+            this.clientService.observableList_chatListGroup.add(nowObj);
+            showChatList();
+        }
     }
 
     public String changeIntoString(List<String> selectedOptions) {
@@ -454,9 +456,9 @@ public class Controller implements Initializable {
             this.chatListShow = chatListShow;
         }
 
-        public ChatObj(String chatListShow, String actualData) {
-            this.chatListShow = chatListShow;
+        public ChatObj(String actualData, String chatListShow) {
             this.actualData = actualData;
+            this.chatListShow = chatListShow;
         }
 
         public String getChatListShow() {
