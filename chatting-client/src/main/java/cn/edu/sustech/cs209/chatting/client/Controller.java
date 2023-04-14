@@ -1,22 +1,6 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
-import javafx.application.Platform;
-import javafx.beans.value.ObservableValue;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.fxml.FXML;
-import javafx.fxml.Initializable;
-import javafx.geometry.HPos;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.geometry.VPos;
-import javafx.scene.Node;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-import javafx.util.Callback;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -27,6 +11,25 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import javafx.application.Platform;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.geometry.HPos;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.geometry.VPos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.text.Font;
+import javafx.stage.Stage;
+import javafx.util.Callback;
+
 
 public class Controller implements Initializable {
 
@@ -145,13 +148,10 @@ public class Controller implements Initializable {
                     Platform.exit();
                     initialize(url, resourceBundle);
                     System.exit(0);
-                    // return;
                 }
-
                 currentUsername.setText("Current User: " + username);
                 // 成功上线，要发一个message
                 loginSuccess();
-
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -381,7 +381,6 @@ public class Controller implements Initializable {
         Long nowTime = System.currentTimeMillis();
 
 
-
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
         out.writeObject(sendPrivateMessage);
@@ -438,6 +437,7 @@ public class Controller implements Initializable {
                     Label nameLabel = new Label(msg.getSentBy());
                     Label msgLabel = new Label(msg.getData());
 
+                    msgLabel.setFont(Font.font("Noto Color Emoji"));
                     nameLabel.setPrefSize(50, 20);
                     nameLabel.setWrapText(true);
                     nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
@@ -504,10 +504,6 @@ public class Controller implements Initializable {
     public static class ChatObj {
         String chatListShow;
         String actualData;
-
-        // public ChatObj(String chatListShow) {
-        //     this.chatListShow = chatListShow;
-        // }
 
         public ChatObj(String actualData, String chatListShow) {
             this.actualData = actualData;
