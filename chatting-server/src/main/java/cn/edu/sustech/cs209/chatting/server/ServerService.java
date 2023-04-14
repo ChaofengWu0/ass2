@@ -93,11 +93,6 @@ public class ServerService implements Runnable {
                     establishLink1(message);
                     break;
                 }
-                // case 6:{
-                //     System.out.println("server case 6");
-                //     establishLink2(message);
-                //     break;
-                // }
             }
         }
     }

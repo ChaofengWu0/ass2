@@ -17,16 +17,15 @@ import java.util.stream.Collectors;
 public class ClientService implements Runnable {
     private final Socket socket;
 
-    private Controller controller;
+    private final Controller controller;
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private Integer type;
 
     private Boolean flagCheckLogin;
-
     private Boolean flagSearchActives;
     private Boolean login;
-    private String username;
+    private final String username;
     private String selectedUsr;
 
     private List<Controller.ChatObj> actives;
@@ -36,7 +35,6 @@ public class ClientService implements Runnable {
     ObservableList<Controller.ChatObj> observableList_chatListPrivate_chatObj;
     ObservableList<Controller.ChatObj> observableList_chatListGroup;
     ObservableList<String> observableList_chatListPrivate;
-    // ObservableList<Controller.ChatObj> observableList_chatListGroup_show;
     ObservableList<String> observableList_chatListGroup_ActualData;
     HashMap<String, Controller.ChatObj> observableList_chatListGroup_hashmap;
     HashMap<String, Controller.ChatObj> observableList_chatListPrivate_hashmap;
@@ -192,9 +190,6 @@ public class ClientService implements Runnable {
             this.observableList_chatListPrivate_chatObj.add(chatObj);
             this.observableList_chatListPrivate.add(message.getSentBy());
             this.observableList_chatListPrivate_hashmap.put(message.getSentBy(), chatObj);
-            // Platform.runLater(() -> {
-            //     controller.chatList.setItems(observableList_chatListPrivate_chatObj);
-            // });
             showChatList();
             serviceShowMsg(message);
         } else {
@@ -203,13 +198,12 @@ public class ClientService implements Runnable {
         System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
     }
 
-
     public void serviceShowMsg(Message message) {
         // 要显示哪些信息？
         if (message.getSendTo().split(",").length == 1) {
             System.out.println("The selected is " + selectedUsr);
             System.out.println("private msg in ShowMsg");
-            showMsgPrivate(message);
+            showMsgPrivate();
         } else {
             System.out.println("The selected is " + selectedUsr);
             System.out.println("group msg in ShowMsg");
@@ -217,7 +211,7 @@ public class ClientService implements Runnable {
         }
     }
 
-    public void showMsgPrivate(Message message) {
+    public void showMsgPrivate() {
         // 第一类，“我”收到的,即sendBy==selectedUsr
         // 第二类，“我”发出的，即sendTo==selectedUsr
         List<Message> tmpMessageList = this.messageList.stream().filter(e ->
@@ -242,9 +236,8 @@ public class ClientService implements Runnable {
     }
 
     public String changeIntoShow(List<String> selectedOptions) {
-        String sb = selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
+        return selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
                 String.format("... (%d)", selectedOptions.size());
-        return sb;
     }
 
 

@@ -7,11 +7,14 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.VPos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
@@ -20,6 +23,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -28,21 +32,16 @@ public class Controller implements Initializable {
 
     @FXML
     Label currentUsername;
-
     @FXML
     Label currentOnlineCnt;
-
     @FXML
     ListView<ChatObj> chatList;
-
     @FXML
     ListView<Message> chatContentList;
-
+    @FXML
+    GridPane emoji;
     @FXML
     TextArea inputArea;
-
-    // private String selectedUserListGlobal_toString;
-    // private String selectedUserListGlobal_toString_show;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -50,9 +49,8 @@ public class Controller implements Initializable {
     private String username;
     private String sendTo;
     private ClientService clientService;
-
-    // private ObservableList<String> chatArrayList;
     private List<ChatObj> actives;
+    HashMap<String, byte[]> unicodeToEmoji;
 
 
     public void check() throws IOException {
@@ -62,14 +60,54 @@ public class Controller implements Initializable {
         out.flush();
     }
 
+    public void setEmojis() {
+        Label emoji1 = new Label("\uD83D\uDE2D");
+        Label emoji2 = new Label("\uD83D\uDE22");
+        Label emoji3 = new Label("\uD83D\uDE0D");
+        Label emoji4 = new Label("\uD83D\uDE1D");
+        unicodeToEmoji.put(emoji1.getText(), "\uD83D\uDE2D".getBytes(StandardCharsets.UTF_8));
+        unicodeToEmoji.put(emoji2.getText(), "\uD83D\uDE22".getBytes(StandardCharsets.UTF_8));
+        unicodeToEmoji.put(emoji3.getText(), "\uD83D\uDE0D".getBytes(StandardCharsets.UTF_8));
+        unicodeToEmoji.put(emoji4.getText(), "\uD83D\uDE1D".getBytes(StandardCharsets.UTF_8));
+        emoji.add(emoji1, 0, 0);
+        emoji.add(emoji2, 0, 1);
+        emoji.add(emoji3, 1, 1);
+        emoji.add(emoji4, 1, 0);
+        GridPane.setHalignment(emoji1, HPos.CENTER);
+        GridPane.setValignment(emoji1, VPos.CENTER);
+        GridPane.setHalignment(emoji2, HPos.CENTER);
+        GridPane.setValignment(emoji2, VPos.CENTER);
+        GridPane.setHalignment(emoji3, HPos.CENTER);
+        GridPane.setValignment(emoji3, VPos.CENTER);
+        GridPane.setHalignment(emoji4, HPos.CENTER);
+        GridPane.setValignment(emoji4, VPos.CENTER);
+        addEmoji();
+    }
+
+    public void addEmoji() {
+        for (int i = 0; i < emoji.getChildren().size(); i++) {
+            Label nowLabel = (Label) emoji.getChildren().get(i);
+            emoji.getChildren().get(i).setOnMouseClicked(event -> {
+                byte[] bytes = unicodeToEmoji.get(nowLabel.getText());
+                String unicodeString = new String(bytes, 0, bytes.length, StandardCharsets.UTF_8); // 将字节数组转换为字符串
+                Platform.runLater(() -> {
+                    inputArea.appendText(unicodeString);
+                });
+            });
+        }
+    }
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         this.actives = new ArrayList<>();
+        this.unicodeToEmoji = new HashMap<>();
         Dialog<String> dialog = new TextInputDialog();
         dialog.setTitle("Login");
         dialog.setHeaderText(null);
         dialog.setContentText("Username:");
         Optional<String> input = dialog.showAndWait();
+        setEmojis();
+
         if (input.isPresent() && !input.get().isEmpty()) {
             username = input.get();
 
@@ -268,7 +306,7 @@ public class Controller implements Initializable {
         stage.setScene(new Scene(box));
         stage.showAndWait();
 
-        if (selectedOptions.size() == 1){
+        if (selectedOptions.size() == 1) {
             return;
         }
 
@@ -466,9 +504,9 @@ public class Controller implements Initializable {
         String chatListShow;
         String actualData;
 
-        public ChatObj(String chatListShow) {
-            this.chatListShow = chatListShow;
-        }
+        // public ChatObj(String chatListShow) {
+        //     this.chatListShow = chatListShow;
+        // }
 
         public ChatObj(String actualData, String chatListShow) {
             this.actualData = actualData;
