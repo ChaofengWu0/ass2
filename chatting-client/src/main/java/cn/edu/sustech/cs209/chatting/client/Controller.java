@@ -381,6 +381,7 @@ public class Controller implements Initializable {
         Long nowTime = System.currentTimeMillis();
 
 
+
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
         out.writeObject(sendPrivateMessage);
