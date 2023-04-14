@@ -37,8 +37,9 @@ public class ClientService implements Runnable {
     ObservableList<Controller.ChatObj> observableList_chatListGroup;
     ObservableList<String> observableList_chatListPrivate;
     // ObservableList<Controller.ChatObj> observableList_chatListGroup_show;
-    ObservableList<String> observableList_chatListGroup_show_StringList;
+    ObservableList<String> observableList_chatListGroup_ActualData;
     HashMap<String, Controller.ChatObj> observableList_chatListGroup_hashmap;
+    HashMap<String, Controller.ChatObj> observableList_chatListPrivate_hashmap;
 
 
     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
@@ -57,7 +58,8 @@ public class ClientService implements Runnable {
         this.observableList_chatListGroup_hashmap = new HashMap<>();
         // this.observableList_chatListGroup_show = FXCollections.observableArrayList();
         this.observableList_chatListPrivate = FXCollections.observableArrayList();
-        this.observableList_chatListGroup_show_StringList = FXCollections.observableArrayList();
+        this.observableList_chatListGroup_ActualData = FXCollections.observableArrayList();
+        this.observableList_chatListPrivate_hashmap = new HashMap<>();
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
         this.selectedUsr = sendTo;
@@ -145,11 +147,14 @@ public class ClientService implements Runnable {
             listForChange.add(sendToUsrArr[i]);
         }
         saveMessageGroup(message, listForChange);
+
+        serviceShowMsg(message);
+
     }
 
     public synchronized void saveMessageGroup(Message message, List<String> listForChange) {
         System.out.println("groupMsg");
-        if (!this.observableList_chatListGroup_show_StringList.contains(message.getSendTo())) {
+        if (!this.observableList_chatListGroup_ActualData.contains(message.getSendTo())) {
             System.out.println("clientService saveMessageGroup not exists");
 
             String selectedOptionsToString_show = changeIntoShow(listForChange);
@@ -157,7 +162,7 @@ public class ClientService implements Runnable {
                     , selectedOptionsToString_show);
             this.observableList_chatListGroup_hashmap.put(message.getSendTo(), nowChatObj);
             this.observableList_chatListGroup.add(nowChatObj);
-            this.observableList_chatListGroup_show_StringList.add(message.getSendTo());
+            this.observableList_chatListGroup_ActualData.add(message.getSendTo());
             showChatList();
             serviceShowMsg(message);
         } else {
@@ -183,11 +188,14 @@ public class ClientService implements Runnable {
     public synchronized void saveMessagePrivate(Message message) {
         System.out.println("privateMsg");
         if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
-            Platform.runLater(() -> {
-                this.observableList_chatListPrivate_chatObj.add(new Controller.ChatObj(message.getSentBy(), message.getSentBy()));
-                this.observableList_chatListPrivate.add(message.getSentBy());
-                controller.chatList.setItems(observableList_chatListPrivate_chatObj);
-            });
+            Controller.ChatObj chatObj = new Controller.ChatObj(message.getSentBy(), message.getSentBy());
+            this.observableList_chatListPrivate_chatObj.add(chatObj);
+            this.observableList_chatListPrivate.add(message.getSentBy());
+            this.observableList_chatListPrivate_hashmap.put(message.getSentBy(), chatObj);
+            // Platform.runLater(() -> {
+            //     controller.chatList.setItems(observableList_chatListPrivate_chatObj);
+            // });
+            showChatList();
             serviceShowMsg(message);
         } else {
             serviceShowMsg(message);
@@ -304,12 +312,11 @@ public class ClientService implements Runnable {
         this.observableList_chatListGroup = observableList_chatListGroup;
     }
 
-    public ObservableList<String> getObservableList_chatListGroup_show_StringList() {
-        return observableList_chatListGroup_show_StringList;
+    public ObservableList<String> getObservableList_chatListGroup_ActualData() {
+        return observableList_chatListGroup_ActualData;
     }
 
-    public void setObservableList_chatListGroup_show_StringList(ObservableList<String> observableList_chatListGroup_show_StringList) {
-        this.observableList_chatListGroup_show_StringList = observableList_chatListGroup_show_StringList;
+    public void setObservableList_chatListGroup_ActualData(ObservableList<String> observableList_chatListGroup_ActualData) {
+        this.observableList_chatListGroup_ActualData = observableList_chatListGroup_ActualData;
     }
-
 }

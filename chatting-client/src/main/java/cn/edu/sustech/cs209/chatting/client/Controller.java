@@ -174,13 +174,16 @@ public class Controller implements Initializable {
         // 选了用户并且点了ok之后.
         ChatObj selectedUser = user.get();
         if (selectedUser == null) return;
-        if (clientService.observableList_chatListPrivate_chatObj.contains(selectedUser)) {
-            chatList.getSelectionModel().select(selectedUser);
+        if (clientService.observableList_chatListPrivate.contains(selectedUser.actualData)) {
+            ChatObj chatObj = this.clientService.observableList_chatListPrivate_hashmap.get(selectedUser.actualData);
+            chatList.getSelectionModel().select(chatObj);
             chatList.setCellFactory(new ChatListCellFactory());
             chatContentList.setCellFactory(new MessageCellFactory());
             System.out.println("Already has this link");
         } else {
+            clientService.observableList_chatListPrivate.add(selectedUser.actualData);
             clientService.observableList_chatListPrivate_chatObj.add(selectedUser);
+            clientService.observableList_chatListPrivate_hashmap.put(selectedUser.actualData, selectedUser);
             showChatList();
         }
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
@@ -245,6 +248,7 @@ public class Controller implements Initializable {
 
         userSel.setItems(FXCollections.observableList(userSelArr));
         List<String> selectedOptions = new ArrayList<>();
+        selectedOptions.add(username);
         Button okBtn = new Button("OK");
         okBtn.setOnAction(e -> {
             for (CheckBox checkBox : userSel.getItems()) {
@@ -264,18 +268,21 @@ public class Controller implements Initializable {
         stage.setScene(new Scene(box));
         stage.showAndWait();
 
+        if (selectedOptions.size() == 1){
+            return;
+        }
+
         // 选了用户并且点了ok之后.
-        if (selectedOptions.size() < 2) {
+        if (selectedOptions.size() <= 2) {
             alertSelectedNotEnough();
             return;
         }
         // 排序
-        selectedOptions.add(username);
         Collections.sort(selectedOptions);
 
         String selectedOptionsToString = changeIntoString(selectedOptions);
         String selectedOptionsToString_show = changeIntoShow(selectedOptions);
-        if (this.clientService.observableList_chatListGroup_show_StringList.contains(selectedOptionsToString)) {
+        if (this.clientService.observableList_chatListGroup_ActualData.contains(selectedOptionsToString)) {
             // 怎么打开这个对话框.
             ChatObj nowObj = this.clientService.observableList_chatListGroup_hashmap.get(selectedOptionsToString);
             chatList.getSelectionModel().select(nowObj);
@@ -284,7 +291,7 @@ public class Controller implements Initializable {
             System.out.println("Already has this link!");
         } else {
             ChatObj nowObj = new ChatObj(selectedOptionsToString, selectedOptionsToString_show);
-            this.clientService.observableList_chatListGroup_show_StringList.add(selectedOptionsToString);
+            this.clientService.observableList_chatListGroup_ActualData.add(selectedOptionsToString);
             this.clientService.observableList_chatListGroup_hashmap.put(selectedOptionsToString, nowObj);
             this.clientService.observableList_chatListGroup.add(nowObj);
             showChatList();
@@ -301,9 +308,8 @@ public class Controller implements Initializable {
     }
 
     public String changeIntoShow(List<String> selectedOptions) {
-        String sb = selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
+        return selectedOptions.get(0) + ", " + selectedOptions.get(1) + ", " + selectedOptions.get(2) +
                 String.format("... (%d)", selectedOptions.size());
-        return sb;
     }
 
 
