@@ -29,8 +29,8 @@ public class Main {
             System.out.println("Client started and the client is " + newClient);
             ServerService service = new ServerService(newClient, observer,actives);
             Thread thread = new Thread(service);
-
             thread.start();
+
         }
     }
 }

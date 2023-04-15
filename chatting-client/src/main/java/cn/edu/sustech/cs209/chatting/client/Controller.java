@@ -26,13 +26,13 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
 
 public class Controller implements Initializable {
-
     @FXML
     Label currentUsername;
     @FXML
@@ -45,6 +45,7 @@ public class Controller implements Initializable {
     GridPane emoji;
     @FXML
     TextArea inputArea;
+    Thread son;
     final int serverPort = 9999;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -102,6 +103,8 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+
+
         this.actives = new ArrayList<>();
         this.unicodeToEmoji = new HashMap<>();
         Dialog<String> dialog = new TextInputDialog();
@@ -113,7 +116,6 @@ public class Controller implements Initializable {
 
         if (input.isPresent() && !input.get().isEmpty()) {
             username = input.get();
-
             /*
                TODO: Check if there is a user with the same name among the currently logged-in users,
                      if so, ask the user to change the username
@@ -124,8 +126,8 @@ public class Controller implements Initializable {
                 in = new ObjectInputStream(socket.getInputStream());
                 System.out.println(socket);
                 clientService = new ClientService(socket, username, in, out, this, sendTo);
-                Thread thread = new Thread(clientService);
-                thread.start();
+                this.son = new Thread(clientService);
+                this.son.start();
                 // handshaking1
                 check();
                 while (clientService.getFlagCheckLogin() == null) {
@@ -139,7 +141,7 @@ public class Controller implements Initializable {
                         throw new RuntimeException();
                     }
                 } catch (RuntimeException e) {
-                    thread.interrupt();
+                    this.son.interrupt();
                     Alert alert = new Alert(Alert.AlertType.WARNING);
                     alert.setTitle("Warning Dialog");
                     alert.setHeaderText(null);
@@ -173,6 +175,8 @@ public class Controller implements Initializable {
                             showMsg();
                         }
                 );
+
+        // whole.setCl
         chatList.setCellFactory(new ChatListCellFactory());
         chatContentList.setCellFactory(new MessageCellFactory());
     }
@@ -186,7 +190,6 @@ public class Controller implements Initializable {
     @FXML
     public void createPrivateChat() {
         AtomicReference<ChatObj> user = new AtomicReference<>();
-
         Stage stage = new Stage();
         ComboBox<ChatObj> userSel = new ComboBox<>();
         userSel.setCellFactory(new ComboBoxCellFactory());
@@ -209,6 +212,7 @@ public class Controller implements Initializable {
         stage.setScene(new Scene(box));
         stage.showAndWait();
 
+
         // 选了用户并且点了ok之后.
         ChatObj selectedUser = user.get();
         if (selectedUser == null) return;
@@ -224,8 +228,6 @@ public class Controller implements Initializable {
             clientService.observableList_chatListPrivate_hashmap.put(selectedUser.actualData, selectedUser);
             showChatList();
         }
-        // TODO: if the current user already chatted with the selected user, just open the chat with that user
-        // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
     }
 
     public void showChatList() {
@@ -239,6 +241,30 @@ public class Controller implements Initializable {
         chatContentList.setCellFactory(new MessageCellFactory());
     }
 
+    public void kill(Stage stage) {
+        stage.setOnCloseRequest(event -> {
+            System.out.println("this client will be dead");
+            // 发消息，告诉服务器，他死了，
+            // 其他人可以继续和他通信吗？
+            Message deadMsg = new Message(6, username);
+            try {
+                out.writeObject(deadMsg);
+                out.flush();
+                closeAll();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            // 退出程序
+            System.exit(0);
+        });
+    }
+
+    public void closeAll() throws IOException {
+        Platform.exit();
+        this.out.close();
+        this.in.close();
+        this.socket.close();
+    }
 
     /**
      * A new dialog should contain a multi-select list, showing all user's name.

@@ -24,21 +24,8 @@ public class Message implements Serializable {
     // 3为server向其余所有client告知有一个client上线了
     // 4为client1向client2发送的消息，需要经过server转发
     // 5为server转发给client2的type
-    /**
-     * 4到7不要
-     */
-
-    // /**
-    //  * handshaking step1
-    //  */
-    // 4为client1向server发送与client2建立连接的请求。
-    // 5为server向client2转发建立连接的请求
-
-    // /**
-    //  * handshaking step2暂时不要这个
-    //  */
-    // 6为client2向server发送与client1建立连接的请求。
-    // 7为server向client1转发建立连接的请求
+    // 6为client向server发送他死了的消息
+    // 7为server向各个其他client发送他死了的消息
     private int type;
 
 

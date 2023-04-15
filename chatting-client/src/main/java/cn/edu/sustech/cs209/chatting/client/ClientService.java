@@ -38,6 +38,7 @@ public class ClientService implements Runnable {
     ObservableList<String> observableList_chatListGroup_ActualData;
     HashMap<String, Controller.ChatObj> observableList_chatListGroup_hashmap;
     HashMap<String, Controller.ChatObj> observableList_chatListPrivate_hashmap;
+    HashMap<String, Controller.ChatObj> observableList_chatListPrivate_hashmap_forAccount;
 
 
     public ClientService(Socket socket, String username, ObjectInputStream in, ObjectOutputStream out, Controller controller, String sendTo) {
@@ -57,6 +58,7 @@ public class ClientService implements Runnable {
         // this.observableList_chatListGroup_show = FXCollections.observableArrayList();
         this.observableList_chatListPrivate = FXCollections.observableArrayList();
         this.observableList_chatListGroup_ActualData = FXCollections.observableArrayList();
+        observableList_chatListPrivate_hashmap_forAccount = new HashMap<>();
         this.observableList_chatListPrivate_hashmap = new HashMap<>();
         this.messageList = new ArrayList<>();
         this.chatList = new ArrayList<>();
@@ -76,9 +78,21 @@ public class ClientService implements Runnable {
         }
     }
 
-    public synchronized void doClientService() throws IOException, ClassNotFoundException {
+    public synchronized void doClientService() throws ClassNotFoundException, IOException {
         while (!Thread.currentThread().isInterrupted()) {
-            Object obj = in.readObject();
+            Object obj = null;
+            try {
+                System.out.println("clientService before in");
+                obj = in.readObject();
+                System.out.println("clientService after in");
+            } catch (IOException e) {
+                this.in.close();
+                this.out.close();
+                this.socket.close();
+                Thread.currentThread().interrupt();
+                Platform.exit();
+                continue;
+            }
             if (obj == null) continue;
             Message message = (Message) obj;
             int type = message.getType();
@@ -90,10 +104,7 @@ public class ClientService implements Runnable {
                 }
                 case 3: {
                     System.out.println("client case 3");
-                    // 获取到了目前有多少人在线
                     getHowManyActives(message);
-                    // List<String> list = message.getActives();
-                    // Platform.runLater(()-> = list);
                     break;
                 }
                 case 5: {
@@ -101,11 +112,11 @@ public class ClientService implements Runnable {
                     saveMessage(message);
                     break;
                 }
-                // case 7: {
-                //     System.out.println("client case 7");
-                //     saveMessageGroup(message);
-                //     break;
-                // }
+                case 7: {
+                    System.out.println("client case 7");
+                    dead(message);
+                    break;
+                }
             }
         }
         System.out.println("interrupted");
@@ -124,12 +135,36 @@ public class ClientService implements Runnable {
     }
 
     public void getHowManyActives(Message message) {
-        this.actives.add(new Controller.ChatObj(message.getData(), message.getData()));
+        Controller.ChatObj newObj = new Controller.ChatObj(message.getData(), message.getData());
+        this.actives.add(newObj);
+        this.observableList_chatListPrivate_hashmap_forAccount.put(newObj.actualData, newObj);
+        showActiveList();
+    }
+
+    public void dead(Message message) {
+        // 接收到某个client死掉了，那么我需要把他从actives里面剔除即可。
+        String name = message.getData();
+        // System.out.println("The usr to be dead is " + name);
+        Controller.ChatObj deleteChatObj = this.observableList_chatListPrivate_hashmap_forAccount.get(name);
+        // System.out.println("For now, the client " + username + " will kill this client " + deleteChatObj);
+        this.actives.remove(deleteChatObj);
+        // this.observableList_chatListPrivate_hashmap.remove(name);
+        this.observableList_chatListPrivate_hashmap_forAccount.remove(name);
+        // this.observableList_chatListPrivate.remove(name);
+        showActiveList();
+    }
+
+    public void showActiveList() {
+        // System.out.println("active clients are here:");
+        // for (Controller.ChatObj active : actives) {
+        //     System.out.println(active);
+        // }
         Platform.runLater(() -> {
             this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
             controller.setActives(this.actives);
         });
     }
+
 
     public synchronized void saveMessage(Message message) {
         this.messageList.add(message);
@@ -311,5 +346,25 @@ public class ClientService implements Runnable {
 
     public void setObservableList_chatListGroup_ActualData(ObservableList<String> observableList_chatListGroup_ActualData) {
         this.observableList_chatListGroup_ActualData = observableList_chatListGroup_ActualData;
+    }
+
+    public ObjectInputStream getIn() {
+        return in;
+    }
+
+    public void setIn(ObjectInputStream in) {
+        this.in = in;
+    }
+
+    public ObjectOutputStream getOut() {
+        return out;
+    }
+
+    public void setOut(ObjectOutputStream out) {
+        this.out = out;
+    }
+
+    public Socket getSocket() {
+        return socket;
     }
 }

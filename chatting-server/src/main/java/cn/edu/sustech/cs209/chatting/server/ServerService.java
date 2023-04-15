@@ -1,11 +1,13 @@
 package cn.edu.sustech.cs209.chatting.server;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import jdk.nashorn.internal.objects.NativeUint8Array;
 
 import java.io.*;
 import java.net.Socket;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -19,7 +21,8 @@ public class ServerService implements Runnable {
 
     private ObjectInputStream in;
     private ObjectOutputStream out;
-    private ConcurrentHashMap<String, ServerService> hashMap;
+    private ConcurrentHashMap<String, ServerService>
+            hashMap;
     private Connection connection;
     private List<String> actives;
 
@@ -49,29 +52,30 @@ public class ServerService implements Runnable {
     public void run() {
         System.out.println("serverService run...");
         try {
-            doService();
-        } catch (IOException e) {
+            if (doService()) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException | SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            try {
-                in.close();
-                out.close();
-                client.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            e.printStackTrace();
+            // throw new RuntimeException(e);
         }
     }
 
-    public void doService() throws IOException, ClassNotFoundException, SQLException {
+    public boolean doService() throws ClassNotFoundException, SQLException, IOException, InterruptedException {
+        boolean flag = false;
         while (true) {
-            // inLock.lock();
             System.out.println("doService before in");
-            Object obj = in.readObject();
+            Object obj = null;
+            try {
+                obj = in.readObject();
+            } catch (IOException e) {
+                System.out.println(client);
+                e.printStackTrace();
+            }
             System.out.println("doService after in");
-            // inLock.unlock();
             if (obj == null) continue;
             Message message = (Message) obj;
             int type = message.getType();
@@ -84,8 +88,7 @@ public class ServerService implements Runnable {
                 }
                 case 2: {
                     System.out.println("server case 2");
-                    tellAllClients(message);
-                    // searchHowManyActive();
+                    tellAllClientsLogin(message);
                     break;
                 }
                 case 4: {
@@ -93,6 +96,16 @@ public class ServerService implements Runnable {
                     establishLink1(message);
                     break;
                 }
+                case 6: {
+                    System.out.println("server case 6");
+                    kill(message);
+                    flag = true;
+                    break;
+                }
+            }
+            if (flag) {
+                Thread.sleep(10);
+                return true;
             }
         }
     }
@@ -179,10 +192,9 @@ public class ServerService implements Runnable {
         // }
     }
 
-    public void tellAllClients(Message message) {
+    public synchronized void tellAllClientsLogin(Message message) {
         String userName = message.getData();
         // 和所有人说，userName上线了
-        // lock.lock();
         hashMap.forEach((key, value) -> {
             if (!key.equals(userName)) {
                 System.out.println(key);
@@ -195,9 +207,8 @@ public class ServerService implements Runnable {
                 }
             }
         });
-        // lock.unlock();
+
         // 告诉userName，哪些人在线
-        // lock.lock();
         hashMap.forEach((key, value) -> {
             if (!key.equals(userName)) {
                 System.out.println(key);
@@ -221,12 +232,18 @@ public class ServerService implements Runnable {
                 sendToUsrArr[i] = sendToUsrArr[i].trim();
             }
         } else {
+            if (!this.actives.contains(sendToUsername)) return;
             sendMsgPrivate(message, sendToUsername);
             return;
         }
 
         // 给每个人都发一遍消息
+        // boolean groupFlag = false;
         for (String s : sendToUsrArr) {
+            if (!this.actives.contains(s)) {
+                continue;
+            }
+            // groupFlag = true;
             if (s.equals(message.getSentBy())) continue;
             sendToUsername = s;
             ServerService sendTo = hashMap.get(sendToUsername);
@@ -257,5 +274,31 @@ public class ServerService implements Runnable {
             e.printStackTrace();
         }
     }
+
+    public synchronized void kill(Message message) throws IOException {
+        String deadUsr = message.getData();
+        System.out.println("The usr will be dead " + deadUsr);
+        // server为其分配的内容要删掉，然后告诉所有人这个人死掉了
+        List<String> tmp = new ArrayList<>(this.actives);
+        for (String active : actives) {
+            if (active.equals(deadUsr)) {
+                tmp.remove(active);
+                closeAll(active);
+                continue;
+            }
+            Message deadNotification = new Message(7, deadUsr);
+            hashMap.get(active).out.writeObject(deadNotification);
+            hashMap.get(active).out.flush();
+        }
+        this.actives = tmp;
+    }
+
+    public void closeAll(String active) throws IOException {
+        hashMap.get(active).in.close();
+        hashMap.get(active).out.close();
+        hashMap.get(active).client.close();
+        hashMap.remove(active);
+    }
+
 
 }
