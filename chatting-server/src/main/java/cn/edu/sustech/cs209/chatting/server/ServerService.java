@@ -279,10 +279,11 @@ public class ServerService implements Runnable {
         String deadUsr = message.getData();
         System.out.println("The usr will be dead " + deadUsr);
         // server为其分配的内容要删掉，然后告诉所有人这个人死掉了
-        List<String> tmp = new ArrayList<>(this.actives);
+        String dead = null;
+        // List<String> tmp = new ArrayList<>(this.actives);
         for (String active : actives) {
             if (active.equals(deadUsr)) {
-                tmp.remove(active);
+                dead = active;
                 closeAll(active);
                 continue;
             }
@@ -290,7 +291,9 @@ public class ServerService implements Runnable {
             hashMap.get(active).out.writeObject(deadNotification);
             hashMap.get(active).out.flush();
         }
-        this.actives = tmp;
+        if (dead != null) {
+            this.actives.remove(dead);
+        }
     }
 
     public void closeAll(String active) throws IOException {
