@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -10,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -186,8 +188,10 @@ public class Controller implements Initializable {
       public void run() {
         Message heartMsg = new Message(8, "");
         try {
-          out.writeObject(heartMsg);
-          out.flush();
+          if (out != null) {
+            out.writeObject(heartMsg);
+            out.flush();
+          }
         } catch (IOException e) {
           Platform.runLater(() -> {
             alertServerExit();
@@ -237,7 +241,9 @@ public class Controller implements Initializable {
 
     // 选了用户并且点了ok之后.
     ChatObj selectedUser = user.get();
-    if (selectedUser == null) {return;}
+    if (selectedUser == null) {
+      return;
+    }
     if (clientService.observableList_chatListPrivate.contains(selectedUser.actualData)) {
       ChatObj chatObj = this.clientService.observableList_chatListPrivate_hashmap.get(selectedUser.actualData);
       chatList.getSelectionModel().select(chatObj);
