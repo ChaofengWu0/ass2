@@ -102,6 +102,9 @@ public class ServerService implements Runnable {
                     flag = true;
                     break;
                 }
+                case 8: {
+                    break;
+                }
             }
             if (flag) {
                 Thread.sleep(10);

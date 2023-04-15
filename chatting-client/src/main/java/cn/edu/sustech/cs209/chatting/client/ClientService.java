@@ -90,7 +90,6 @@ public class ClientService implements Runnable {
                 this.out.close();
                 this.socket.close();
                 Thread.currentThread().interrupt();
-                Platform.exit();
                 continue;
             }
             if (obj == null) continue;
@@ -144,21 +143,13 @@ public class ClientService implements Runnable {
     public void dead(Message message) {
         // 接收到某个client死掉了，那么我需要把他从actives里面剔除即可。
         String name = message.getData();
-        // System.out.println("The usr to be dead is " + name);
         Controller.ChatObj deleteChatObj = this.observableList_chatListPrivate_hashmap_forAccount.get(name);
-        // System.out.println("For now, the client " + username + " will kill this client " + deleteChatObj);
         this.actives.remove(deleteChatObj);
-        // this.observableList_chatListPrivate_hashmap.remove(name);
         this.observableList_chatListPrivate_hashmap_forAccount.remove(name);
-        // this.observableList_chatListPrivate.remove(name);
         showActiveList();
     }
 
     public void showActiveList() {
-        // System.out.println("active clients are here:");
-        // for (Controller.ChatObj active : actives) {
-        //     System.out.println(active);
-        // }
         Platform.runLater(() -> {
             this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
             controller.setActives(this.actives);

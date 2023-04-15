@@ -103,8 +103,6 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-
-
         this.actives = new ArrayList<>();
         this.unicodeToEmoji = new HashMap<>();
         Dialog<String> dialog = new TextInputDialog();
@@ -132,7 +130,6 @@ public class Controller implements Initializable {
                 check();
                 while (clientService.getFlagCheckLogin() == null) {
                     Thread.sleep(10);
-                    // System.out.println(clientService.getFlagCheckLogin());
                 }
                 clientService.setFlagCheckLogin(null);
                 // login没成功，走这里,要弹出警告
@@ -176,9 +173,36 @@ public class Controller implements Initializable {
                         }
                 );
 
+        // 心跳消息
         // whole.setCl
         chatList.setCellFactory(new ChatListCellFactory());
         chatContentList.setCellFactory(new MessageCellFactory());
+        heart();
+    }
+
+    public void heart() {
+        Timer timer = new Timer();
+        boolean flag = false;
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                Message heartMsg = new Message(8, "");
+                try {
+                    out.writeObject(heartMsg);
+                    out.flush();
+                } catch (IOException e) {
+                    Platform.runLater(() -> {
+                        alertServerExit();
+                        this.cancel();
+                        Platform.exit();
+                    });
+                }
+            }
+        };
+        long delay = 0; // 延迟时间，单位为毫秒，0 表示立即执行
+        long period = 5000; // 执行周期，单位为毫秒，表示每隔 1 秒执行一次
+        timer.schedule(task, delay, period);
+
     }
 
     public void loginSuccess() throws IOException {
@@ -250,6 +274,7 @@ public class Controller implements Initializable {
             try {
                 out.writeObject(deadMsg);
                 out.flush();
+                Platform.exit();
                 closeAll();
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -260,7 +285,6 @@ public class Controller implements Initializable {
     }
 
     public void closeAll() throws IOException {
-        Platform.exit();
         this.out.close();
         this.in.close();
         this.socket.close();
@@ -290,6 +314,14 @@ public class Controller implements Initializable {
         alert.setTitle("Warning Dialog");
         alert.setHeaderText(null);
         alert.setContentText("The number of selected is not enough, you should choose to start a private chat or choose more users to chat.");
+        alert.showAndWait();
+    }
+
+    public void alertServerExit() {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Warning Dialog");
+        alert.setHeaderText(null);
+        alert.setContentText("The server is dead!! And you should send no more info");
         alert.showAndWait();
     }
 
@@ -403,16 +435,11 @@ public class Controller implements Initializable {
          * 上面的是对输入的内容进行检查
          */
         System.out.println("in showChatList, and for now the one selected is " + chatList.getSelectionModel().getSelectedItem());
-        // ChatObj selectedItem = chatList.getSelectionModel().getSelectedItem();
         Long nowTime = System.currentTimeMillis();
-
-
         Message sendPrivateMessage = new Message(nowTime, username, sendTo, data, 4);
         this.clientService.messageList.add(sendPrivateMessage);
         out.writeObject(sendPrivateMessage);
         out.flush();
-
-
         showMsg();
         this.chatContentList.setCellFactory(new MessageCellFactory());
         inputArea.clear();

@@ -17,7 +17,6 @@ public class Main {
         ConcurrentHashMap<String, ServerService> observer = new ConcurrentHashMap<>();
         List<String> actives = new ArrayList<>();
         System.out.println("Starting server");
-
         while (true) {
             // 不断监听有没有新的client建立
             Socket newClient = null;
@@ -30,7 +29,6 @@ public class Main {
             ServerService service = new ServerService(newClient, observer,actives);
             Thread thread = new Thread(service);
             thread.start();
-
         }
     }
 }
