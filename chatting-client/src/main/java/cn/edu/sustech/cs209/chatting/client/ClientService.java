@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -9,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -171,31 +173,61 @@ public class ClientService implements Runnable {
       listForChange.add(sendToUsrArr[i]);
     }
     saveMessageGroup(message, listForChange);
-
     serviceShowMsg(message);
-
   }
 
   public synchronized void saveMessageGroup(Message message, List<String> listForChange) {
     System.out.println("groupMsg");
     if (!this.observableList_chatListGroup_ActualData.contains(message.getSendTo())) {
       System.out.println("clientService saveMessageGroup not exists");
-
       String selectedOptionsToString_show = changeIntoShow(listForChange);
-      Controller.ChatObj nowChatObj = new Controller.ChatObj(message.getSendTo()
+      Controller.ChatObj chatObj = new Controller.ChatObj(message.getSendTo()
               , selectedOptionsToString_show);
-      this.observableList_chatListGroup_hashmap.put(message.getSendTo(), nowChatObj);
-      this.observableList_chatListGroup.add(nowChatObj);
+      if (!controller.getSendTo().equals(chatObj.actualData)) {
+        System.out.println("There's a msg not read");
+        chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
+      }
+      this.observableList_chatListGroup_hashmap.put(message.getSendTo(), chatObj);
+      this.observableList_chatListGroup.add(chatObj);
       this.observableList_chatListGroup_ActualData.add(message.getSendTo());
       showChatList();
       serviceShowMsg(message);
     } else {
-      System.out.println("clientService saveMessageGroup exists");
+      Controller.ChatObj chatObj = this.observableList_chatListGroup_hashmap.get(message.getSendTo());
+      if (!controller.getSendTo().equals(chatObj.actualData)) {
+        System.out.println("There's a msg not read");
+        chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
+      }
+      showChatList();
       serviceShowMsg(message);
     }
     System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
   }
 
+  public synchronized void saveMessagePrivate(Message message) {
+    System.out.println("privateMsg");
+    if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
+      Controller.ChatObj chatObj = new Controller.ChatObj(message.getSentBy(), message.getSentBy());
+      if (!controller.getSendTo().equals(chatObj.actualData)) {
+        System.out.println("There's a msg not read");
+        chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
+      }
+      this.observableList_chatListPrivate_chatObj.add(chatObj);
+      this.observableList_chatListPrivate.add(message.getSentBy());
+      this.observableList_chatListPrivate_hashmap.put(message.getSentBy(), chatObj);
+      showChatList();
+      serviceShowMsg(message);
+    } else {
+      Controller.ChatObj chatObj = this.observableList_chatListPrivate_hashmap.get(message.getSentBy());
+      if (!controller.getSendTo().equals(chatObj.actualData)) {
+        System.out.println("There's a msg not read");
+        chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
+      }
+      showChatList();
+      serviceShowMsg(message);
+    }
+    System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
+  }
 
   public void showChatList() {
     ObservableList<Controller.ChatObj> privateList = observableList_chatListPrivate_chatObj;
@@ -207,21 +239,6 @@ public class ClientService implements Runnable {
       controller.chatList.setItems(allList);
       controller.chatList.setCellFactory(new Controller.ChatListCellFactory());
     });
-  }
-
-  public synchronized void saveMessagePrivate(Message message) {
-    System.out.println("privateMsg");
-    if (!this.observableList_chatListPrivate.contains(message.getSentBy())) {
-      Controller.ChatObj chatObj = new Controller.ChatObj(message.getSentBy(), message.getSentBy());
-      this.observableList_chatListPrivate_chatObj.add(chatObj);
-      this.observableList_chatListPrivate.add(message.getSentBy());
-      this.observableList_chatListPrivate_hashmap.put(message.getSentBy(), chatObj);
-      showChatList();
-      serviceShowMsg(message);
-    } else {
-      serviceShowMsg(message);
-    }
-    System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
   }
 
   public void serviceShowMsg(Message message) {

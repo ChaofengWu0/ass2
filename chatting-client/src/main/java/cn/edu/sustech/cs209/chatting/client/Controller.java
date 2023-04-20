@@ -105,6 +105,7 @@ public class Controller implements Initializable {
   public void initialize(URL url, ResourceBundle resourceBundle) {
     this.actives = new ArrayList<>();
     this.unicodeToEmoji = new HashMap<>();
+    this.sendTo = "";
     Dialog<String> dialog = new TextInputDialog();
     dialog.setTitle("Login");
     dialog.setHeaderText(null);
@@ -166,7 +167,20 @@ public class Controller implements Initializable {
                       // 捕获到了，就要把右边的改过去
                       if (newValue != null) {
                         sendTo = newValue.actualData;
+                        System.out.println("sendTo has , ? : " + sendTo.contains(","));
+                        if (sendTo.contains(",")) {
+                          // 说明是多人聊天
+                          String[] tmpArr = newValue.actualData.split(",");
+                          List<String> list = new ArrayList<>(Arrays.asList(tmpArr));
+                          newValue.chatListShow = changeIntoShow(list);
+                        } else {
+                          // 单人聊天
+                          System.out.println("solo private msg");
+                          newValue.chatListShow = sendTo;
+                        }
+                        System.out.println("actualData : " + sendTo);
                       }
+                      chatList.setCellFactory(new ChatListCellFactory());
                       this.clientService.setSelectedUsr(sendTo);
                       System.out.println("now sendTo: " + sendTo);
                       showMsg();
@@ -548,6 +562,14 @@ public class Controller implements Initializable {
         }
       };
     }
+  }
+
+  public String getSendTo() {
+    return sendTo;
+  }
+
+  public void setSendTo(String sendTo) {
+    this.sendTo = sendTo;
   }
 
   public List<ChatObj> getActives() {
