@@ -96,6 +96,11 @@ public class ServerService implements Runnable {
         case 8: {
           break;
         }
+        case 10: {
+          System.out.println("server case 10");
+          file(message);
+          break;
+        }
       }
       if (flag) {
         Thread.sleep(10);
@@ -289,6 +294,45 @@ public class ServerService implements Runnable {
       this.actives.remove(dead);
     }
   }
+
+  public synchronized void file(Message message) {
+    String sendToUsername = message.getSendTo();
+    // 处理多个人的情况
+    String[] sendToUsrArr = sendToUsername.split(",");
+    if (sendToUsrArr.length > 1) {
+      for (int i = 0; i < sendToUsrArr.length; i++) {
+        sendToUsrArr[i] = sendToUsrArr[i].trim();
+      }
+    } else {
+      if (!this.actives.contains(sendToUsername)) return;
+      sendMsgPrivate(message, sendToUsername);
+      return;
+    }
+
+    // 给每个人都发一遍消息
+    // boolean groupFlag = false;
+    for (String s : sendToUsrArr) {
+      if (!this.actives.contains(s)) {
+        continue;
+      }
+      // groupFlag = true;
+      if (s.equals(message.getSentBy())) continue;
+      sendToUsername = s;
+      ServerService sendTo = hashMap.get(sendToUsername);
+      System.out.println(sendTo);
+      try {
+        message.setType(11);
+        sendTo.out.writeObject(message);
+        sendTo.out.flush();
+        System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + sendToUsername);
+        System.out.println("The msg is " + message.getData());
+        System.out.println("The msg if for group " + message.getSendTo());
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
 
   public void closeAll(String active) throws IOException {
     hashMap.get(active).in.close();

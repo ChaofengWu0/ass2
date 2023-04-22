@@ -1,16 +1,13 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
-
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -118,6 +115,11 @@ public class ClientService implements Runnable {
           dead(message);
           break;
         }
+        case 11: {
+          System.out.println("client case 11");
+          file(message);
+          break;
+        }
       }
     }
     System.out.println("interrupted");
@@ -151,6 +153,18 @@ public class ClientService implements Runnable {
     showActiveList();
   }
 
+  public void file(Message message) throws IOException {
+    String dataInBytes = message.getData();
+    byte[] bytes = Base64.getDecoder().decode(dataInBytes);
+    String filePath = "C:\\Users\\ll\\Desktop\\University\\JAVA2\\ass2\\ass2\\chatting-client\\src\\main\\resources";
+    FileOutputStream outputStream = new FileOutputStream(filePath + "\\newFile__sendBy__" + message.getSentBy() + "__sendTo__" + message.getSendTo());
+    outputStream.write(bytes);
+    outputStream.flush();
+    outputStream.close();
+
+  }
+
+
   public void showActiveList() {
     Platform.runLater(() -> {
       this.controller.currentOnlineCnt.setText(String.valueOf(this.actives.size() + 1));
@@ -160,6 +174,9 @@ public class ClientService implements Runnable {
 
 
   public synchronized void saveMessage(Message message) {
+    if (message.getData().contains("You uploaded a file")) {
+      message.setData("------You received the file------");
+    }
     this.messageList.add(message);
     String[] sendToUsrArr = message.getSendTo().split(",");
     if (sendToUsrArr.length == 1) {
@@ -181,8 +198,8 @@ public class ClientService implements Runnable {
     if (!this.observableList_chatListGroup_ActualData.contains(message.getSendTo())) {
       System.out.println("clientService saveMessageGroup not exists");
       String selectedOptionsToString_show = changeIntoShow(listForChange);
-      Controller.ChatObj chatObj = new Controller.ChatObj(message.getSendTo()
-              , selectedOptionsToString_show);
+      Controller.ChatObj chatObj = new Controller.ChatObj(message.getSendTo(),
+              selectedOptionsToString_show);
       if (!controller.getSendTo().equals(chatObj.actualData)) {
         System.out.println("There's a msg not read");
         chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
@@ -233,8 +250,12 @@ public class ClientService implements Runnable {
     ObservableList<Controller.ChatObj> privateList = observableList_chatListPrivate_chatObj;
     ObservableList<Controller.ChatObj> groupList = observableList_chatListGroup;
     ObservableList<Controller.ChatObj> allList = FXCollections.observableArrayList();
-    if (privateList != null) allList.addAll(privateList);
-    if (groupList != null) allList.addAll(groupList);
+    if (privateList != null) {
+      allList.addAll(privateList);
+    }
+    if (groupList != null) {
+      allList.addAll(groupList);
+    }
     Platform.runLater(() -> {
       controller.chatList.setItems(allList);
       controller.chatList.setCellFactory(new Controller.ChatListCellFactory());
@@ -283,37 +304,8 @@ public class ClientService implements Runnable {
             String.format("... (%d)", selectedOptions.size());
   }
 
-
-  public Boolean getFlagSearchActives() {
-    return flagSearchActives;
-  }
-
-  public void setFlagSearchActives(Boolean flagSearchActives) {
-    this.flagSearchActives = flagSearchActives;
-  }
-
-  public Integer getType() {
-    return type;
-  }
-
-  public void setType(Integer type) {
-    this.type = type;
-  }
-
-  public List<Controller.ChatObj> getActives() {
-    return actives;
-  }
-
-  public void setActives(List<Controller.ChatObj> actives) {
-    this.actives = actives;
-  }
-
   public Boolean getLogin() {
     return login;
-  }
-
-  public void setLogin(Boolean login) {
-    this.login = login;
   }
 
   public Boolean getFlagCheckLogin() {
@@ -324,55 +316,7 @@ public class ClientService implements Runnable {
     this.flagCheckLogin = flagCheckLogin;
   }
 
-  public String getSelectedUsr() {
-    return selectedUsr;
-  }
-
   public void setSelectedUsr(String selectedUsr) {
     this.selectedUsr = selectedUsr;
-  }
-
-  public ObservableList<Controller.ChatObj> getObservableList_chatListPrivate_chatObj() {
-    return observableList_chatListPrivate_chatObj;
-  }
-
-  public void setObservableList_chatListPrivate_chatObj(ObservableList<Controller.ChatObj> observableList_chatListPrivate_chatObj) {
-    this.observableList_chatListPrivate_chatObj = observableList_chatListPrivate_chatObj;
-  }
-
-  public ObservableList<Controller.ChatObj> getObservableList_chatListGroup() {
-    return observableList_chatListGroup;
-  }
-
-  public void setObservableList_chatListGroup(ObservableList<Controller.ChatObj> observableList_chatListGroup) {
-    this.observableList_chatListGroup = observableList_chatListGroup;
-  }
-
-  public ObservableList<String> getObservableList_chatListGroup_ActualData() {
-    return observableList_chatListGroup_ActualData;
-  }
-
-  public void setObservableList_chatListGroup_ActualData(ObservableList<String> observableList_chatListGroup_ActualData) {
-    this.observableList_chatListGroup_ActualData = observableList_chatListGroup_ActualData;
-  }
-
-  public ObjectInputStream getIn() {
-    return in;
-  }
-
-  public void setIn(ObjectInputStream in) {
-    this.in = in;
-  }
-
-  public ObjectOutputStream getOut() {
-    return out;
-  }
-
-  public void setOut(ObjectOutputStream out) {
-    this.out = out;
-  }
-
-  public Socket getSocket() {
-    return socket;
   }
 }

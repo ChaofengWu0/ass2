@@ -1,17 +1,17 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
-
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -27,6 +27,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
@@ -276,8 +277,12 @@ public class Controller implements Initializable {
     ObservableList<ChatObj> privateList = clientService.observableList_chatListPrivate_chatObj;
     ObservableList<ChatObj> groupList = clientService.observableList_chatListGroup;
     ObservableList<ChatObj> allList = FXCollections.observableArrayList();
-    if (privateList != null) allList.addAll(privateList);
-    if (groupList != null) allList.addAll(groupList);
+    if (privateList != null) {
+      allList.addAll(privateList);
+    }
+    if (groupList != null) {
+      allList.addAll(groupList);
+    }
     chatList.setItems(allList);
     chatList.setCellFactory(new ChatListCellFactory());
     chatContentList.setCellFactory(new MessageCellFactory());
@@ -484,6 +489,30 @@ public class Controller implements Initializable {
       chatContentList.setItems(observableList);
       System.out.println("Controller group msg");
     }
+  }
+
+  public synchronized void sendFile() throws IOException {
+    FileChooser fileChooser = new FileChooser();
+
+    // 设置文件选择器的标题
+    fileChooser.setTitle("选择文件");
+    File selectedFile = fileChooser.showOpenDialog(new Stage());
+    byte[] fileContent = Files.readAllBytes(selectedFile.toPath());
+    String encodedFileContent = Base64.getEncoder().encodeToString(fileContent);
+    Message fileMsg = new Message(10, encodedFileContent, sendTo);
+    out.writeObject(fileMsg);
+    out.flush();
+
+    String data = "------You uploaded a file------";
+    Long nowTime = System.currentTimeMillis();
+    Message fileMsgAttention = new Message(nowTime, username, sendTo, data, 4);
+
+    this.clientService.messageList.add(fileMsgAttention);
+    showMsg();
+    this.chatContentList.setCellFactory(new MessageCellFactory());
+
+    out.writeObject(fileMsgAttention);
+    out.flush();
   }
 
   /**

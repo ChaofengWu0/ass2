@@ -25,6 +25,8 @@ public class Message implements Serializable {
   // 6为client向server发送他死了的消息
   // 7为server向各个其他client发送他死了的消息
   // 8为client向server发送心跳检测包
+  // 10为client向server发送文件包
+  // 11为server向client转发文件包
   private int type;
 
 
@@ -34,10 +36,10 @@ public class Message implements Serializable {
   }
 
 
-  public Message(String sentBy, String sendTo, int type) {
-    this.sentBy = sentBy;
-    this.sendTo = sendTo;
+  public Message(int type, String data, String sendTo) {
     this.type = type;
+    this.data = data;
+    this.sendTo = sendTo;
   }
 
   public Message(Long timestamp, String sentBy, String sendTo, String data, int type) {
