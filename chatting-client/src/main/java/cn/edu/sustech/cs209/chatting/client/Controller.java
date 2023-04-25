@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -12,6 +13,7 @@ import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -147,8 +149,9 @@ public class Controller implements Initializable {
           alert.setContentText("The user has already been online!\nPlease input a user not online!");
           alert.showAndWait();
           Platform.exit();
-          initialize(url, resourceBundle);
-          System.exit(0);
+          // initialize(url, resourceBundle);
+          // System.exit(0);
+          return;
         }
         currentUsername.setText("Current User: " + username);
         // 成功上线，要发一个message
