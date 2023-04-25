@@ -274,6 +274,20 @@ public class ServerService implements Runnable {
     }
   }
 
+  public void sendMsgPrivateFile(Message message, String sendToUsername) {
+    ServerService sendTo = hashMap.get(sendToUsername);
+    System.out.println(sendTo);
+    try {
+      message.setType(11);
+      sendTo.out.writeObject(message);
+      sendTo.out.flush();
+      System.out.println("Server:\nReceive from " + client.getPort() + " and send to " + sendToUsername);
+      System.out.println("The msg is " + message.getData());
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
   public synchronized void kill(Message message) throws IOException {
     String deadUsr = message.getData();
     System.out.println("The usr will be dead " + deadUsr);
@@ -305,7 +319,7 @@ public class ServerService implements Runnable {
       }
     } else {
       if (!this.actives.contains(sendToUsername)) return;
-      sendMsgPrivate(message, sendToUsername);
+      sendMsgPrivateFile(message, sendToUsername);
       return;
     }
 

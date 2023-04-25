@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -157,7 +159,7 @@ public class ClientService implements Runnable {
     String dataInBytes = message.getData();
     byte[] bytes = Base64.getDecoder().decode(dataInBytes);
     String filePath = "C:\\Users\\ll\\Desktop\\University\\JAVA2\\ass2\\ass2\\chatting-client\\src\\main\\resources";
-    FileOutputStream outputStream = new FileOutputStream(filePath + "\\newFile__sendBy__" + message.getSentBy() + "__sendTo__" + message.getSendTo());
+    FileOutputStream outputStream = new FileOutputStream(filePath + "\\newFile__sendBy__" + message.getSentBy() + "__sendTo__" + message.getSendTo() + "__saves__" + username);
     outputStream.write(bytes);
     outputStream.flush();
     outputStream.close();
@@ -190,7 +192,7 @@ public class ClientService implements Runnable {
       listForChange.add(sendToUsrArr[i]);
     }
     saveMessageGroup(message, listForChange);
-    serviceShowMsg(message);
+    // serviceShowMsg(message);
   }
 
   public synchronized void saveMessageGroup(Message message, List<String> listForChange) {
@@ -208,7 +210,7 @@ public class ClientService implements Runnable {
       this.observableList_chatListGroup.add(chatObj);
       this.observableList_chatListGroup_ActualData.add(message.getSendTo());
       showChatList();
-      serviceShowMsg(message);
+      // serviceShowMsg(message);
     } else {
       Controller.ChatObj chatObj = this.observableList_chatListGroup_hashmap.get(message.getSendTo());
       if (!controller.getSendTo().equals(chatObj.actualData)) {
@@ -216,7 +218,7 @@ public class ClientService implements Runnable {
         chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
       }
       showChatList();
-      serviceShowMsg(message);
+      // serviceShowMsg(message);
     }
     System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
   }
@@ -233,7 +235,7 @@ public class ClientService implements Runnable {
       this.observableList_chatListPrivate.add(message.getSentBy());
       this.observableList_chatListPrivate_hashmap.put(message.getSentBy(), chatObj);
       showChatList();
-      serviceShowMsg(message);
+      // serviceShowMsg(message);
     } else {
       Controller.ChatObj chatObj = this.observableList_chatListPrivate_hashmap.get(message.getSentBy());
       if (!controller.getSendTo().equals(chatObj.actualData)) {
@@ -241,7 +243,7 @@ public class ClientService implements Runnable {
         chatObj.setChatListShow(chatObj.chatListShow + "       有未读消息");
       }
       showChatList();
-      serviceShowMsg(message);
+      // serviceShowMsg(message);
     }
     System.out.println(username + " 现在有 " + this.messageList.size() + "条消息");
   }
